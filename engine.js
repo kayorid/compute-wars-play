@@ -247,6 +247,7 @@
     const d = BUILDINGS[bt];
     if (tx < 0 || ty < 0 || tx + d.w > MAP_W || ty + d.h > MAP_H || (bt === 'agi' && !on(s, 'agi'))) return false; // 4.2.4: AGI desligada
     for (let y = ty; y < ty + d.h; y++) for (let x = tx; x < tx + d.w; x++) if (s.grid[y * MAP_W + x]) return false;
+    if ((s.relics || []).some((r) => r.lab == null && r.by == null && r.x >= tx * TILE && r.x < (tx + d.w) * TILE && r.y >= ty * TILE && r.y < (ty + d.h) * TILE)) return false; // relíquia solta embaixo ficaria inalcançável
     return true;
   }
   function place(s, bt, tx, ty, owner) {

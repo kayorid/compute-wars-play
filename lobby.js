@@ -82,6 +82,7 @@ function lobbyChange(e) {
 const lobbyMsg = (m) => { const el = $('lb-msg'); if (el) el.textContent = m; };
 
 function startScreen() {
+  for (const id of ['top', 'bottom', 'hand']) { const el = $(id); if (el) el.inert = true; } /* HUD da partida fica atrás do lobby: fora do foco (WCAG 2.4.3) */
   const ob = $('cw-obj'); if (ob) ob.style.display = 'none'; /* objetivos de missão não ficam no lobby */ Audio.stopAmbient(); const menuMusic = () => { if (Audio.unlock() && (!S || S.winner !== null)) Sound.start('menu'); }; if (Audio.ctx) menuMusic(); else addEventListener('pointerdown', menuMusic, { once: true }); /* 4.4.2 tema de menu (precisa de gesto para destravar o áudio) */ const o = $('overlay'); o.style.display = 'flex'; o.style.backgroundImage = 'url(assets/ui_title.jpg)'; document.body.dataset.f = chosen;
   let saved = null; try { saved = localStorage.getItem('cw_save'); } catch (e) {}
   if (!LB.slots.length) buildSlots();
