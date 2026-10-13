@@ -1,0 +1,182 @@
+{
+ "distill": {
+  "file": "assets/icons/distill.png",
+  "label": "Distillation",
+  "category": "tech"
+ },
+ "synth": {
+  "file": "assets/icons/synth.png",
+  "label": "Synthetic Data",
+  "category": "tech"
+ },
+ "scaling": {
+  "file": "assets/icons/scaling.png",
+  "label": "Scaling Laws",
+  "category": "tech"
+ },
+ "quant": {
+  "file": "assets/icons/quant.png",
+  "label": "Quantization",
+  "category": "tech"
+ },
+ "rlhf": {
+  "file": "assets/icons/rlhf.png",
+  "label": "RLHF",
+  "category": "tech"
+ },
+ "guard": {
+  "file": "assets/icons/guard.png",
+  "label": "Guardrails",
+  "category": "tech"
+ },
+ "moe": {
+  "file": "assets/icons/moe.png",
+  "label": "Mixture of Experts",
+  "category": "tech"
+ },
+ "longctx": {
+  "file": "assets/icons/longctx.png",
+  "label": "Long Context",
+  "category": "tech"
+ },
+ "waf": {
+  "file": "assets/icons/waf.png",
+  "label": "WAF",
+  "category": "tech"
+ },
+ "agents": {
+  "file": "assets/icons/agents.png",
+  "label": "Agents",
+  "category": "tech"
+ },
+ "cot": {
+  "file": "assets/icons/cot.png",
+  "label": "Chain-of-Thought",
+  "category": "tech"
+ },
+ "ttc": {
+  "file": "assets/icons/ttc.png",
+  "label": "Test-Time Compute",
+  "category": "tech"
+ },
+ "propweights": {
+  "file": "assets/icons/propweights.png",
+  "label": "Proprietary Weights",
+  "category": "faction_tech"
+ },
+ "hexcore": {
+  "file": "assets/icons/hexcore.png",
+  "label": "Hexcore Overclock",
+  "category": "faction_tech"
+ },
+ "monocle": {
+  "file": "assets/icons/monocle.png",
+  "label": "Monocle Network",
+  "category": "faction_tech"
+ },
+ "ivory": {
+  "file": "assets/icons/ivory.png",
+  "label": "Ivory Charter",
+  "category": "faction_tech"
+ },
+ "openweights": {
+  "file": "assets/icons/openweights.png",
+  "label": "Open Weights",
+  "category": "faction_tech"
+ },
+ "chemtech": {
+  "file": "assets/icons/chemtech.png",
+  "label": "Chemtech Furnaces",
+  "category": "faction_tech"
+ },
+ "guildsol": {
+  "file": "assets/icons/guildsol.png",
+  "label": "Guild Solidarity",
+  "category": "faction_tech"
+ },
+ "neon": {
+  "file": "assets/icons/neon.png",
+  "label": "Neon Signal",
+  "category": "faction_tech"
+ },
+ "openaccess": {
+  "file": "assets/icons/openaccess.png",
+  "label": "Open Access",
+  "category": "faction_tech"
+ },
+ "citation": {
+  "file": "assets/icons/citation.png",
+  "label": "Citation Index",
+  "category": "faction_tech"
+ },
+ "tenure": {
+  "file": "assets/icons/tenure.png",
+  "label": "Tenure Track",
+  "category": "faction_tech"
+ },
+ "dropout": {
+  "file": "assets/icons/dropout.png",
+  "label": "Dropout",
+  "category": "faction_tech"
+ },
+ "decree": {
+  "file": "assets/icons/decree.png",
+  "label": "Decreto",
+  "category": "ability"
+ },
+ "overclock": {
+  "file": "assets/icons/overclock.png",
+  "label": "Overclock",
+  "category": "ability"
+ },
+ "edital": {
+  "file": "assets/icons/edital.png",
+  "label": "Edital",
+  "category": "ability"
+ },
+ "fieldfoundry": {
+  "file": "assets/icons/fieldfoundry.png",
+  "label": "Fundição de Campo",
+  "category": "ability"
+ },
+ "peerreview": {
+  "file": "assets/icons/peerreview.png",
+  "label": "Revisão por Pares",
+  "category": "ability"
+ },
+ "sysreview": {
+  "file": "assets/icons/sysreview.png",
+  "label": "Revisão Sistemática",
+  "category": "ability"
+ },
+ "attackmove": {
+  "file": "assets/icons/attackmove.png",
+  "label": "Atacar-mover",
+  "category": "order"
+ },
+ "patrol": {
+  "file": "assets/icons/patrol.png",
+  "label": "Patrulhar",
+  "category": "order"
+ },
+ "stop": {
+  "file": "assets/icons/stop.png",
+  "label": "Parar",
+  "category": "order"
+ },
+ "rally": {
+  "file": "assets/icons/rally.png",
+  "label": "Ponto de encontro",
+  "category": "order"
+ },
+ "garrison": {
+  "file": "assets/icons/garrison.png",
+  "label": "Guarnecer",
+  "category": "order"
+ },
+ "stance": {
+  "file": "assets/icons/stance.png",
+  "label": "Postura",
+  "category": "order"
+ }
+}

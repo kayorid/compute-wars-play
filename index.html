@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Compute Wars</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=EB+Garamond:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ivory:#F2E9D8; --ink:#0b0f14; --panel:#101620; --panel2:#161e2a; --line:#2a3647;
+    --gpu:#4E8CFF; --data:#3FD17A; --research:#E8C547; --rogue:#C07AFF; --danger:#FF5A5A;
+    --display:'Cinzel', 'Palatino', serif; --body:'EB Garamond', 'Georgia', serif; --mono:'IBM Plex Mono', Menlo, monospace; --label:'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
+    --own:#7FE6F0; --enemy:#A8FF38; --glow:rgba(127,230,240,.35);
+    /* metal da facção (Citadel: latão sobre esmalte azul) */
+    --m1:#f3d98f; --m2:#C9A04E; --m3:#7a5c22; --m4:#33230b; --mat:#C9A04E; --mat2:#7a5c22; --enamel:#0f2238; --enamel2:#071320;
+    --metal:linear-gradient(180deg,var(--m1) 0%,var(--m2) 35%,var(--m3) 70%,var(--m4) 100%);
+    --metalh:linear-gradient(90deg,var(--m4),var(--m2) 20%,var(--m1) 50%,var(--m2) 80%,var(--m4));
+    --brass:linear-gradient(180deg,var(--m1),var(--m2) 48%,var(--m3) 100%);
+    --btn:linear-gradient(180deg,#2e3c50,#18212c 55%,#0f151d); --chrome:linear-gradient(180deg,#141d2a,#0a1018);
+  }
+  body[data-f="foundry"], .fac[data-f="foundry"] { --own:#A8FF38; --enemy:#7FE6F0; --glow:rgba(168,255,56,.3); --m1:#ecb98c; --m2:#B8744A; --m3:#6b3a1e; --m4:#2a150a; --mat:#B8744A; --mat2:#5a3520; --enamel:#2a1d17; --enamel2:#160e0a;
+    --metal:linear-gradient(180deg,var(--m1) 0%,var(--m2) 35%,var(--m3) 70%,var(--m4) 100%); --metalh:linear-gradient(90deg,var(--m4),var(--m2) 20%,var(--m1) 50%,var(--m2) 80%,var(--m4)); --brass:linear-gradient(180deg,var(--m1),var(--m2) 48%,var(--m3) 100%);
+    --btn:linear-gradient(180deg,#43342c,#241b16 55%,#150f0c); --chrome:linear-gradient(180deg,#231a15,#120d0a); }
+  /* 4.1.3 Commons: pergaminho e cobre verde-azinhavre sobre esmalte de tinta */
+  body[data-f="commons"], .fac[data-f="commons"] { --own:#5FE0B0; --enemy:#7FE6F0; --glow:rgba(95,224,176,.3); --m1:#efe0b8; --m2:#5aa38b; --m3:#2d5f51; --m4:#10261f; --mat:#5aa38b; --mat2:#2d5f51; --enamel:#1c2420; --enamel2:#0d1310;
+    --metal:linear-gradient(180deg,var(--m1) 0%,var(--m2) 35%,var(--m3) 70%,var(--m4) 100%); --metalh:linear-gradient(90deg,var(--m4),var(--m2) 20%,var(--m1) 50%,var(--m2) 80%,var(--m4)); --brass:linear-gradient(180deg,var(--m1),var(--m2) 48%,var(--m3) 100%);
+    --btn:linear-gradient(180deg,#34433b,#1b2520 55%,#0f1512); --chrome:linear-gradient(180deg,#1a231e,#0c120f); }
+  .fac[data-f="citadel"] { --own:#7FE6F0; --glow:rgba(127,230,240,.35); --m1:#f3d98f; --m2:#C9A04E; --m3:#7a5c22; --m4:#33230b; --mat:#C9A04E; --enamel:#0f2238; --enamel2:#071320; --metal:linear-gradient(180deg,var(--m1) 0%,var(--m2) 35%,var(--m3) 70%,var(--m4) 100%); --brass:linear-gradient(180deg,var(--m1),var(--m2) 48%,var(--m3) 100%); }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--ink); color:var(--ivory); font:15px/1.35 var(--body); overflow:hidden; user-select:none; }
+  button { font-family:inherit; }
+  button:focus-visible, .fac:focus-visible, #mini:focus-visible, input:focus-visible { outline:2px solid var(--own); outline-offset:2px; }
+  canvas#c { display:block; }
+  /* peças de metal reutilizadas: moldura, placa esmaltada, botão com relevo */
+  #info { background:linear-gradient(180deg,var(--enamel2),var(--enamel) 60%,var(--enamel2)); border:1px solid var(--m3); box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 14px rgba(0,0,0,.75), 0 1px 0 rgba(255,255,255,.05); }
+  .tb { position:relative; height:30px; padding:0 12px; display:inline-flex; align-items:center; justify-content:center; gap:6px; background:var(--btn); border:1px solid #000; box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -2px 0 rgba(0,0,0,.55), 0 0 0 1px var(--m3), 0 2px 3px rgba(0,0,0,.6); color:var(--ivory); font:700 12px var(--label); letter-spacing:1.2px; text-transform:uppercase; text-shadow:0 1px 0 #000; cursor:pointer; transition:filter .12s, box-shadow .12s; }
+  .tb:hover { filter:brightness(1.2); box-shadow:inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 0 rgba(0,0,0,.55), 0 0 0 1px var(--m1), 0 0 10px var(--glow); }
+  .tb:active, .tb[aria-pressed="true"] { background:linear-gradient(180deg,#0b1016,#1a2330); box-shadow:inset 0 2px 5px rgba(0,0,0,.85), 0 0 0 1px var(--m3); transform:translateY(1px); filter:none; }
+  .tb svg { width:16px; height:16px; fill:currentColor; }
+  /* topo */
+  #top { position:fixed; top:0; left:0; right:0; height:44px; background:var(--chrome); border-bottom:3px solid; border-image:var(--metalh) 1; box-shadow:0 3px 14px rgba(0,0,0,.75); display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; padding:0 10px; z-index:3; white-space:nowrap; }
+  #top::before { content:''; position:absolute; left:0; right:0; top:0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent); pointer-events:none; }
+  #top .zl { display:flex; align-items:center; gap:6px; min-width:0; }
+  #top .emblem { width:36px; height:36px; background:center/contain no-repeat; filter:drop-shadow(0 0 5px var(--glow)); margin-right:2px; }
+  .chip { display:flex; align-items:center; gap:5px; height:32px; padding:0 10px 0 3px; background:linear-gradient(180deg,var(--enamel2),var(--enamel)); border:1px solid var(--m3); box-shadow:inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 10px rgba(0,0,0,.7); font:600 16px var(--mono); position:relative; min-width:88px; color:var(--ivory); text-shadow:0 1px 0 #000; }
+  .chip img { width:26px; height:26px; flex:none; filter:drop-shadow(0 1px 1px #000); }
+  .chip svg { width:16px; height:16px; flex:none; fill:currentColor; margin:0 4px; }
+  .chip.gpu svg { color:var(--gpu); } .chip.data svg { color:var(--data); } .chip.research svg { color:var(--research); }
+  .chip .tr { width:10px; font:700 13px var(--mono); color:var(--data); } .chip.hide { display:none; }
+  .chip.warn { border-color:var(--danger); color:var(--danger); animation:blink 1s infinite; }
+  .chip .delta { position:absolute; right:6px; top:-14px; font-size:12px; animation:rise 1.1s ease-out forwards; pointer-events:none; }
+  .delta.up { color:var(--data); } .delta.down { color:var(--danger); }
+  @keyframes rise { from { opacity:1; transform:translateY(6px); } to { opacity:0; transform:translateY(-12px); } }
+  @keyframes blink { 50% { opacity:.55; } }
+  /* placa central: latão chanfrado com esmalte por dentro */
+  #mid { position:relative; justify-self:center; width:100%; max-width:560px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-width:330px; height:40px; padding:0 28px; background:var(--brass); clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,16px 100%,0 50%); }
+  #mid::before { content:''; position:absolute; inset:3px; background:linear-gradient(180deg,var(--enamel2),var(--enamel)); clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,14px 100%,0 50%); box-shadow:inset 0 0 12px #000; }
+  #mid > * { position:relative; }
+  #clock { font:700 19px/19px var(--display); letter-spacing:2px; color:var(--ivory); text-shadow:0 0 10px var(--glow), 0 1px 0 #000; }
+  #era { display:flex; align-items:center; gap:8px; width:100%; }
+  #era b { font:600 9px var(--display); letter-spacing:1.6px; color:var(--m1); }
+  #era .bar { flex:1; height:4px; background:rgba(0,0,0,.6); border:1px solid var(--m4); } #era .bar i { display:block; height:100%; background:linear-gradient(90deg,var(--m3),var(--m1)); transition:width .4s; }
+  #top .right { justify-self:end; display:flex; gap:6px; align-items:center; position:relative; }
+  #mutebtn .off, #mutebtn.muted .on { display:none; } #mutebtn.muted .off { display:inline; }
+  /* menu suspenso: salvar, carregar, som, volume, sair */
+  #menu { position:absolute; top:38px; right:0; width:240px; padding:8px; background:var(--chrome); border:3px solid; border-image:var(--metal) 1; box-shadow:inset 0 0 0 1px #000, 0 12px 30px rgba(0,0,0,.85); display:none; flex-direction:column; gap:6px; z-index:5; }
+  #menu.open { display:flex; } #menu .tb { width:100%; justify-content:space-between; height:32px; } #menu .tb kbd { font:500 10px var(--mono); color:#8f9bb0; text-transform:none; letter-spacing:0; }
+  #menu .row { display:flex; align-items:center; gap:8px; padding:2px 4px; font:700 11px var(--label); letter-spacing:1px; text-transform:uppercase; color:#aeb7c6; }
+  #menu hr { border:0; height:1px; background:linear-gradient(90deg,transparent,var(--m2),transparent); margin:2px 0; }
+  input[type=range] { -webkit-appearance:none; appearance:none; flex:1; height:8px; background:linear-gradient(180deg,#000,#1b2430); border:1px solid var(--m3); box-shadow:inset 0 1px 3px #000; cursor:pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:radial-gradient(circle at 35% 30%,var(--m1),var(--m2) 55%,var(--m3)); border:1px solid #000; box-shadow:0 1px 2px #000; }
+  input[type=range]::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:radial-gradient(circle at 35% 30%,var(--m1),var(--m2) 55%,var(--m3)); border:1px solid #000; }
+  /* painel: moldura de metal, três zonas (retrato+ficha | command card | minimapa) */
+  #bottom { position:fixed; bottom:0; left:0; right:0; max-width:1600px; margin:0 auto; height:200px; background:var(--chrome); border-top:4px solid; border-image:var(--metalh) 1; box-shadow:0 -4px 18px rgba(0,0,0,.75); display:flex; gap:6px; padding:5px 8px 3px; z-index:3; }
+  #bottom::before { content:''; position:absolute; left:0; right:0; top:0; height:1px; background:rgba(255,255,255,.14); pointer-events:none; }
+  @media (min-width:1801px) { #bottom { border-left:4px solid; border-right:4px solid; border-image:var(--metalh) 1; } }
+  #portrait { width:150px; flex:none; border:3px solid; border-image:var(--metal) 1; background:radial-gradient(circle at 50% 35%,var(--enamel),var(--enamel2) 75%) center/contain no-repeat; position:relative; box-shadow:inset 0 0 0 1px #000, inset 0 0 30px rgba(0,0,0,.8), 0 0 0 1px #000; }
+  #portrait::after { content:''; position:absolute; inset:2px; pointer-events:none; background-image:radial-gradient(circle at 5px 5px,var(--m1) 0 1.4px,var(--m4) 2px,transparent 2.8px), radial-gradient(circle at calc(100% - 5px) 5px,var(--m1) 0 1.4px,var(--m4) 2px,transparent 2.8px), radial-gradient(circle at 5px calc(100% - 5px),var(--m1) 0 1.4px,var(--m4) 2px,transparent 2.8px), radial-gradient(circle at calc(100% - 5px) calc(100% - 5px),var(--m1) 0 1.4px,var(--m4) 2px,transparent 2.8px); }
+  #portrait .name { position:absolute; left:0; right:0; bottom:0; background:linear-gradient(transparent, rgba(0,0,0,.92)); padding:18px 6px 5px; font:600 12px var(--display); letter-spacing:1px; text-align:center; color:var(--m1); text-shadow:0 1px 0 #000; }
+  #portrait .lvl { position:absolute; top:6px; left:6px; width:26px; height:26px; border-radius:50%; background:var(--brass); color:#1a1206; font:700 13px var(--mono); display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 1px #000, 0 0 8px var(--glow); }
+  #info { width:310px; flex:none; padding:7px 10px; overflow:hidden; display:flex; flex-direction:column; gap:2px; font-size:13px; line-height:1.25; }
+  #info h3 { font:700 15px var(--display); letter-spacing:1px; color:var(--m1); line-height:1.2; text-shadow:0 1px 0 #000; }
+  #info .sub { font:700 11px var(--label); letter-spacing:1.5px; text-transform:uppercase; color:#9aa6ba; }
+  #info .num { font:500 13px var(--mono); }
+  .bar { height:7px; background:rgba(0,0,0,.6); border:1px solid #000; position:relative; box-shadow:inset 0 1px 2px #000; } .bar i { display:block; height:100%; transition:width .25s; }
+  .bar.hp i { background:linear-gradient(90deg,#2f9a55,#3fd17a); } .bar.hp.low i { background:linear-gradient(90deg,#9a2f2f,#ff5a5a); } .bar.xp i { background:linear-gradient(90deg,var(--m3),var(--m1)); } .bar.q i { background:var(--own); }
+  #info .keys { margin-top:auto; font:500 10px var(--mono); color:#9aa6ba; line-height:1.45; } #info .keys b { color:var(--ivory); background:rgba(255,255,255,.08); padding:0 4px; border-radius:2px; font-weight:500; border:1px solid rgba(255,255,255,.1); }
+  #cards:empty { display:none; } #cards { width:110px; flex:none; margin:2px 0; display:grid; grid-template-columns:repeat(3, 1fr); grid-auto-rows:44px; gap:3px; align-content:flex-start; }
+  #cards button { padding:0; border:1px solid #000; box-shadow:0 0 0 1px var(--m3); background:#07090d center/cover no-repeat; position:relative; cursor:pointer; } #cards button:hover { box-shadow:0 0 0 1px var(--m1); } #cards button i { position:absolute; left:0; right:0; bottom:0; height:3px; background:#3fd17a; } #cards button i.low { background:var(--danger); }
+  #actions { flex:1; min-width:376px; margin:0 2px; display:grid; grid-template-columns:repeat(5, minmax(72px, 1fr)); grid-template-rows:repeat(3, 60px); grid-auto-rows:60px; gap:4px; align-content:center; overflow:hidden; }
+  #actions:empty { display:none; } #bottom:has(#actions:empty) #info { flex:1; width:auto; } #bottom:has(#cards:not(:empty)) #info { width:260px; } /* com retratos múltiplos, a ficha cede espaço à grade */ /* sem seleção: a ficha ocupa o lugar da grade */
+  .slot { background:rgba(0,0,0,.35); border:1px solid #000; box-shadow:inset 0 0 0 1px rgba(255,255,255,.04), inset 0 0 10px #000; opacity:.5; }
+  .cmd { position:relative; background:linear-gradient(180deg,#1d2835,#0f161e); border:1px solid #000; box-shadow:inset 0 1px 0 rgba(255,255,255,.1), inset 0 -2px 0 rgba(0,0,0,.5), 0 0 0 1px var(--m3); color:var(--ivory); cursor:pointer; text-align:left; padding:0 4px 0 5px; overflow:hidden; display:grid; grid-template-columns:42px minmax(0,1fr); grid-template-rows:auto auto; column-gap:5px; align-content:center; transition:box-shadow .12s, transform .06s, filter .12s; }
+  .cmd:hover:not(:disabled) { box-shadow:inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 0 rgba(0,0,0,.5), 0 0 0 1px var(--m1), 0 0 10px var(--glow); filter:brightness(1.12); } .cmd:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 5px rgba(0,0,0,.8), 0 0 0 1px var(--m3); filter:none; }
+  .cmd:disabled { cursor:default; } .cmd:disabled .thumb { filter:grayscale(.9) brightness(.5); } .cmd:disabled .t { color:#6f7a8c; }
+  .cmd .thumb { grid-row:1/3; width:42px; height:42px; display:flex; align-items:center; justify-content:center; } .cmd .thumb img { max-width:100%; max-height:100%; object-fit:contain; filter:drop-shadow(0 1px 1px #000); } .cmd .thumb:not(.glyph) span { display:none; }
+  .cmd .thumb.glyph span { width:34px; height:34px; border-radius:50%; background:radial-gradient(circle at 40% 35%,var(--enamel),var(--enamel2)); box-shadow:0 0 0 2px var(--m2), 0 0 0 3px var(--m4), inset 0 0 8px #000; font:700 17px var(--display); color:var(--m1); display:flex; align-items:center; justify-content:center; }
+  .cmd .t { font:700 11px/12px var(--label); letter-spacing:.5px; text-transform:uppercase; padding:0; max-height:24px; overflow:hidden; text-shadow:0 1px 0 #000; }
+  .cmd .cost { font:500 11px/13px var(--mono); padding:0; color:#b9c2d0; display:flex; flex-wrap:wrap; gap:0 7px; } .cmd .cost span::before { content:''; display:inline-block; width:8px; height:8px; margin-right:3px; border-radius:2px; vertical-align:-0.5px; }
+  .cmd .cost .gpu::before { background:var(--gpu); } .cmd .cost .data::before { background:var(--data); } .cmd .cost .research::before { background:var(--research); } .cmd .cost .time::before { display:none; } .cmd .cost .lack { color:var(--danger); }
+  .cmd kbd { position:absolute; left:2px; bottom:2px; font:700 10px var(--mono); color:#1a1206; background:var(--brass); padding:0 4px; border:1px solid #000; box-shadow:0 1px 0 rgba(255,255,255,.3) inset; }
+  .cmd.hero { box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 1px var(--m1); } .cmd .cd { position:absolute; inset:0; background:conic-gradient(rgba(0,0,0,.75) var(--p), transparent 0); pointer-events:none; }
+  .cmd .prog { position:absolute; left:0; bottom:0; height:3px; background:var(--own); }
+  .cmd .q { position:absolute; top:3px; left:4px; font:600 10px var(--mono); background:var(--own); color:#000; padding:0 4px; }
+  .cmd.denied { animation:shake .3s; } @keyframes shake { 25% { transform:translateX(-3px); } 75% { transform:translateX(3px); } }
+  #miniwrap { width:312px; flex:none; position:relative; display:flex; align-items:center; justify-content:center; }
+  #mini { width:300px; height:232px; border:1px solid #000; background:#000; cursor:crosshair; box-shadow:0 0 0 3px var(--m2), 0 0 0 4px var(--m4), inset 0 0 20px rgba(0,0,0,.6); }
+  /* mundo */
+  #log { position:fixed; top:54px; left:14px; z-index:2; display:flex; flex-direction:column; gap:4px; pointer-events:none; width:340px; }
+  #log div { background:linear-gradient(90deg,rgba(8,12,18,.94),rgba(8,12,18,.82)); border:1px solid var(--m3); border-left:3px solid var(--own); padding:4px 10px; font-size:14px; pointer-events:auto; cursor:pointer; animation:slidein .25s ease-out; backdrop-filter:blur(2px); box-shadow:0 2px 8px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.06); }
+  #log div.alert { border-left-color:var(--danger); } #log div.hero, #log div.levelup, #log div.era { border-left-color:var(--m1); } #log div:hover { background:rgba(20,28,40,.96); }
+  #log button { margin-left:6px; font:700 11px var(--label); letter-spacing:.5px; text-transform:uppercase; background:var(--brass); color:#1a1206; border:1px solid #000; padding:2px 8px; cursor:pointer; box-shadow:inset 0 1px 0 rgba(255,255,255,.4); }
+  @keyframes slidein { from { opacity:0; transform:translateX(-12px); } }
+  #banner { position:fixed; left:0; right:0; top:34%; text-align:center; pointer-events:none; z-index:4; opacity:0; }
+  #banner.intro { top:12%; } #banner.intro p { font-size:20px; }
+  #banner.show { animation:banner 3.2s ease-out forwards; }
+  #banner h1, .metal-text { font:700 46px var(--display); letter-spacing:8px; background:linear-gradient(180deg,#fff6d2 0%,var(--m1) 28%,var(--m2) 52%,var(--m3) 72%,var(--m1) 100%); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 2px 0 #2a1b05) drop-shadow(0 4px 12px rgba(0,0,0,.9)); }
+  #banner p { font:italic 500 18px var(--body); color:var(--ivory); text-shadow:0 0 6px #000, 0 1px 0 #000; }
+  #banner::before, #banner::after { content:''; display:block; height:2px; width:40%; margin:10px auto; background:linear-gradient(90deg, transparent, var(--m1), transparent); }
+  @keyframes banner { 0% { opacity:0; transform:scale(.96); } 12% { opacity:1; transform:scale(1); } 80% { opacity:1; } 100% { opacity:0; } }
+  #modeline { position:fixed; top:54px; left:50%; transform:translateX(-50%); z-index:2; background:rgba(8,12,18,.92); border:1px solid var(--m2); box-shadow:0 0 0 1px #000, 0 4px 12px #000; padding:6px 16px; font:700 13px var(--label); letter-spacing:2px; text-transform:uppercase; color:var(--m1); display:none; }
+  #tip { position:fixed; z-index:6; background:linear-gradient(180deg,#121a26,#0a1018); border:2px solid; border-image:var(--metal) 1; padding:8px 11px; font-size:14px; max-width:300px; display:none; pointer-events:none; box-shadow:inset 0 0 0 1px #000, 0 8px 24px rgba(0,0,0,.8); }
+  #tip b { font:700 13px var(--display); color:var(--m1); letter-spacing:.5px; } #tip small { color:#9aa6ba; display:block; margin-top:3px; }
+  #hover { position:fixed; z-index:2; pointer-events:none; display:none; background:rgba(8,12,18,.88); border:1px solid var(--m3); border-left:2px solid var(--mat); padding:3px 8px; font:500 12px var(--mono); }
+  #fade { position:fixed; inset:0; background:#000; z-index:8; pointer-events:none; opacity:0; }
+  #attackflash { position:fixed; inset:0; pointer-events:none; z-index:1; box-shadow:inset 0 0 120px rgba(255,60,60,0); transition:box-shadow .3s; }
+  /* telas */
+  /* 3.2.8 modal de talentos: dois cartões, 1/2 ou clique */
+  #talent { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(5,8,12,.6); z-index:8; } #talent.open { display:flex; }
+  #talent .box { background:rgba(7,11,17,.95); border:4px solid; border-image:var(--metal) 1; box-shadow:inset 0 0 0 1px #000, 0 0 0 1px #000, 0 24px 80px rgba(0,0,0,.85); padding:22px 30px; text-align:center; }
+  #talent h2 { font:600 15px var(--display); letter-spacing:.3em; color:var(--m1); text-transform:uppercase; }
+  #talent .cards { display:flex; gap:16px; margin-top:16px; }
+  #talent .card { position:relative; width:230px; padding:16px 16px 26px; background:linear-gradient(180deg,#1d2835,#0f161e); border:1px solid #000; box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 1px var(--m3); color:var(--ivory); font:500 14px var(--body); text-align:left; cursor:pointer; }
+  #talent .card:hover, #talent .card:focus-visible { box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 2px var(--m1); outline:none; }
+  #talent .card b { display:block; font:700 17px var(--display); color:var(--m1); margin-bottom:6px; } #talent .card kbd { position:absolute; right:8px; bottom:6px; }
+  #overlay { position:fixed; inset:0; background:#05080c center/cover; display:flex; align-items:center; justify-content:center; z-index:9; }
+  #overlay .box { background:rgba(7,11,17,.9); border:4px solid; border-image:var(--metal) 1; box-shadow:inset 0 0 0 1px #000, 0 0 0 1px #000, 0 24px 80px rgba(0,0,0,.85); padding:30px 44px; max-width:900px; text-align:center; backdrop-filter:blur(3px); }
+  #overlay .box h1 { font-size:54px; letter-spacing:.2em; margin-bottom:6px; }
+  /* tela inicial: a arte respira; título em latão no alto, placas de facção no rodapé */
+  #overlay .title { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:space-between; text-align:center; background:linear-gradient(rgba(5,8,12,.78), transparent 28%, transparent 55%, rgba(5,8,12,.92) 82%); }
+  #overlay .title header { padding-top:5vh; } #overlay .title footer { padding:0 4vw 4vh; display:flex; flex-direction:column; align-items:center; gap:18px; }
+  #overlay h1 { font:700 clamp(44px, 6vw, 84px) var(--display); letter-spacing:.2em; background:linear-gradient(180deg,#fff6d2 0%,var(--m1) 28%,var(--m2) 52%,var(--m3) 72%,var(--m1) 100%); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 3px 0 #2a1b05) drop-shadow(0 8px 18px rgba(0,0,0,.9)); }
+  #overlay h2 { font:600 clamp(12px, 1.2vw, 17px) var(--display); letter-spacing:.4em; color:var(--own); margin:8px 0 16px; text-shadow:0 1px 2px #000, 0 0 12px var(--glow); }
+  #overlay p { max-width:760px; margin:6px auto; font-size:16px; color:#d9d1c0; }
+  #overlay .factions { display:flex; gap:24px; justify-content:center; }
+  .fac { width:min(420px, 30vw); border:3px solid; border-image:var(--metal) 1; background:linear-gradient(180deg,rgba(10,16,26,.84),rgba(5,9,14,.92)); box-shadow:inset 0 0 0 1px #000, 0 0 0 1px #000, 0 10px 30px rgba(0,0,0,.7); backdrop-filter:blur(6px); cursor:pointer; padding:14px 16px; display:flex; gap:14px; align-items:center; text-align:left; opacity:.8; position:relative; transition:transform .15s, box-shadow .15s, opacity .15s; }
+  .fac:hover { transform:translateY(-2px); opacity:1; } .fac.sel { box-shadow:inset 0 0 0 1px #000, 0 0 0 1px #000, 0 0 30px var(--glow), inset 0 0 50px rgba(0,0,0,.5); opacity:1; }
+  .fac::after { content:''; position:absolute; inset:3px; pointer-events:none; background-image:radial-gradient(circle at 6px 6px,var(--m1) 0 1.5px,var(--m4) 2.2px,transparent 3px), radial-gradient(circle at calc(100% - 6px) 6px,var(--m1) 0 1.5px,var(--m4) 2.2px,transparent 3px), radial-gradient(circle at 6px calc(100% - 6px),var(--m1) 0 1.5px,var(--m4) 2.2px,transparent 3px), radial-gradient(circle at calc(100% - 6px) calc(100% - 6px),var(--m1) 0 1.5px,var(--m4) 2.2px,transparent 3px); }
+  .fac img { width:84px; height:84px; filter:drop-shadow(0 4px 6px #000); } .fac b { display:block; font:700 20px var(--display); letter-spacing:1px; color:var(--ivory); margin-bottom:4px; } .fac.sel b { color:var(--m1); } .fac small { color:#b7bfcc; font-size:13px; line-height:1.35; } .fac em { display:block; font:600 11px var(--label); letter-spacing:2px; text-transform:uppercase; color:#9aa6ba; margin-bottom:6px; }
+  #overlay .cta { background:var(--brass); color:#1a1206; border:1px solid #2a1b05; padding:12px 28px; font:700 14px var(--label); letter-spacing:2px; text-transform:uppercase; cursor:pointer; box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 0 rgba(0,0,0,.35), 0 0 0 1px #000, 0 4px 10px rgba(0,0,0,.7), 0 0 16px var(--glow); text-shadow:0 1px 0 rgba(255,255,255,.35); transition:transform .08s, filter .12s; } #overlay .cta:hover { transform:translateY(-1px); filter:brightness(1.08); } #overlay .cta:active { transform:translateY(1px); box-shadow:inset 0 2px 4px rgba(0,0,0,.4), 0 0 0 1px #000; }
+  #overlay select { background:#1f2a38; color:var(--ivory); border:1px solid var(--line); padding:8px 12px; font:500 14px var(--mono); }
+  #overlay table { margin:14px auto; border-collapse:collapse; font:500 14px var(--mono); } #overlay td { padding:4px 16px; border-bottom:1px solid var(--line); text-align:left; } #overlay td:first-child { font-family:var(--body); font-size:15px; }
+  .fac img.hero { width:72px; height:96px; object-fit:cover; border:1px solid var(--m3); box-shadow:0 0 0 1px #000; }
+  @media (max-width:1400px) { .fac { padding:12px; gap:10px; } .fac img { width:60px; height:60px; } .fac img.hero { width:54px; height:72px; } .fac b { font-size:18px; } } /* 4.1.3: 3 cartões em 1280 */
+  .diffrow .sub { font:700 12px var(--label); letter-spacing:2px; text-transform:uppercase; color:#9aa6ba; margin-right:10px; }
+  .seg { display:inline-flex; border:1px solid #000; box-shadow:0 0 0 1px var(--m3), 0 2px 6px rgba(0,0,0,.6); } .seg button { background:var(--btn); color:var(--ivory); border:0; border-right:1px solid #000; padding:8px 18px; font:700 13px var(--label); letter-spacing:1px; text-transform:uppercase; cursor:pointer; box-shadow:inset 0 1px 0 rgba(255,255,255,.12); text-shadow:0 1px 0 #000; } .seg button:last-child { border-right:0; } .seg button:hover { filter:brightness(1.2); } .seg button.on { background:var(--brass); color:#1a1206; text-shadow:0 1px 0 rgba(255,255,255,.35); box-shadow:inset 0 2px 4px rgba(0,0,0,.35); }
+  /* 3.3.2 árvore de tecnologias (T) e 3.3.4 placar (Tab): mesma moldura/placa do HUD; nós reaproveitam .cmd */
+  #tree { position:fixed; inset:0; z-index:5; display:none; background:rgba(5,8,12,.72); overflow:auto; padding:56px 20px 20px; }
+  #tree .box { max-width:1280px; margin:0 auto; background:rgba(7,11,17,.94); border:4px solid; border-image:var(--metal) 1; box-shadow:inset 0 0 0 1px #000, 0 0 0 1px #000, 0 24px 80px rgba(0,0,0,.85); padding:18px 26px 22px; }
+  #tree h1 { font-size:34px; letter-spacing:.2em; text-align:center; } #tree .sub { text-align:center; color:#b7bfcc; font-size:14px; margin:4px 0 14px; } #tree kbd { font:500 11px var(--mono); color:#1a1206; background:var(--brass); padding:0 5px; border:1px solid #000; }
+  #tree .eras { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:18px; }
+  #tree section { position:relative; } #tree section + section::before { content:'➜'; position:absolute; left:-17px; top:22px; color:var(--m2); font-size:16px; text-shadow:0 1px 0 #000; } /* seta: a era anterior é o pré-requisito */
+  #tree header { position:relative; padding:8px 10px; background:linear-gradient(180deg,var(--enamel2),var(--enamel)); border:1px solid var(--m3); box-shadow:inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 12px rgba(0,0,0,.7); }
+  #tree header b { position:absolute; right:8px; top:6px; width:24px; height:24px; border-radius:50%; background:var(--brass); color:#1a1206; font:700 12px var(--mono); display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 1px #000; }
+  #tree header h3 { font:700 13px var(--display); letter-spacing:1px; color:var(--m1); text-shadow:0 1px 0 #000; padding-right:28px; } #tree header small { display:flex; flex-wrap:wrap; gap:0 7px; font:500 11px var(--mono); color:#b9c2d0; margin-top:3px; min-height:14px; }
+  #tree header.locked h3 { color:#6f7a8c; } #tree header.next { box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px var(--m1), 0 0 10px var(--glow); }
+  #tree .nodes { margin:0 0 0 20px; padding:10px 0 2px 14px; border-left:2px solid var(--m3); display:flex; flex-direction:column; gap:6px; } /* espinha: liga a era (pré-requisito) aos nós */
+  #tree .n { position:relative; } #tree .n::before { content:''; position:absolute; left:-16px; top:50%; width:14px; height:2px; background:var(--m3); }
+  #tree .n .cmd { width:100%; height:56px; } #tree .n.done .cmd { box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 1px var(--m1); } #tree .n.done .cmd .thumb { filter:none; } #tree .n.done .cmd .t { color:var(--m1); } #tree .n.queued .cmd .t { color:var(--own); } #tree .n.queued .cmd .thumb { filter:none; }
+  #tree .none { font-size:13px; color:#6f7a8c; font-style:italic; }
+  #tree .cost span::before { content:''; display:inline-block; width:8px; height:8px; margin-right:3px; border-radius:2px; } #tree .cost .gpu::before { background:var(--gpu); } #tree .cost .data::before { background:var(--data); } #tree .cost .research::before { background:var(--research); } #tree .cost .time::before { display:none; } #tree .cost .lack { color:var(--danger); }
+  #score { position:fixed; top:54px; right:12px; z-index:3; display:none; min-width:360px; background:rgba(7,11,17,.94); border:3px solid; border-image:var(--metal) 1; box-shadow:inset 0 0 0 1px #000, 0 0 0 1px #000, 0 12px 30px rgba(0,0,0,.85); padding:10px 14px 12px; }
+  #score h2 { font:700 14px var(--display); letter-spacing:3px; color:var(--m1); text-align:center; text-shadow:0 1px 0 #000; margin-bottom:6px; }
+  #score table { width:100%; border-collapse:collapse; font:500 14px var(--mono); } #score td { padding:4px 8px; border-bottom:1px solid var(--line); text-align:right; } #score td:first-child { font:15px var(--body); color:#b7bfcc; text-align:left; } #score tr:first-child td { font:700 11px var(--label); letter-spacing:1px; text-transform:uppercase; border-bottom:1px solid var(--m3); }
+  #score .era td:not(:first-child) { font:600 11px var(--display); letter-spacing:.5px; color:var(--m1); } #score small { display:block; margin-top:6px; font-size:12px; color:#6f7a8c; text-align:center; }
+  /* 3.3.7 acessibilidade: escala da UI (menu: 90/100/120%); #tip/#hover ficam fora (posicionados em px pelo JS) */
+  :root { --ui:1; } #top, #bottom, #log, #modeline, #banner, #tut-box { zoom:var(--ui); }
+  #menu .seg button { padding:6px 8px; font-size:11px; }
+  /* 3.3.3 tutorial: recorte (sombra gigante), seta e placa; só a placa recebe clique */
+  #tut { position:fixed; inset:0; z-index:4; pointer-events:none; } #tut[hidden] { display:none; }
+  #tut-hole { position:absolute; border:2px solid var(--m1); border-radius:10px; box-shadow:0 0 0 9999px rgba(0,0,0,.45), 0 0 18px var(--glow); transition:left .12s, top .12s, width .12s, height .12s; }
+  #tut-arrow { position:absolute; width:0; height:0; margin:-11px 0 0 -14px; border:11px solid transparent; border-left:22px solid var(--m1); border-right:0; filter:drop-shadow(0 0 4px #000) drop-shadow(0 0 6px var(--glow)); transform:rotate(var(--a, 90deg)); transform-origin:40% 50%; animation:tutbob .9s ease-in-out infinite alternate; }
+  @keyframes tutbob { to { margin-left:-6px; } }
+  #tut-box { position:absolute; right:16px; top:60px; width:320px; padding:12px 14px; pointer-events:auto; background:var(--chrome); border:3px solid; border-image:var(--metal) 1; box-shadow:inset 0 0 0 1px #000, 0 12px 30px rgba(0,0,0,.85); }
+  #tut-box b { display:block; font:700 14px var(--display); letter-spacing:1px; color:var(--m1); text-shadow:0 1px 0 #000; } #tut-box p { margin:6px 0 10px; font-size:15px; color:var(--ivory); } #tut-box div { display:flex; gap:6px; } #tut-box .tb { flex:1; }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration:.01s !important; transition-duration:.01s !important; } }
+</style>
+</head>
+<body data-f="citadel">
+<div id="top"></div>
+<canvas id="c" role="img" aria-label="Mapa da partida"></canvas>
+<div id="attackflash"></div>
+<div id="fade"></div>
+<div id="log"></div>
+<div id="modeline"></div>
+<div id="hover"></div>
+<div id="banner"><h1></h1><p></p></div>
+<div id="talent" role="dialog" aria-modal="true" aria-labelledby="talent-h"><div class="box"><h2 id="talent-h"></h2><div class="cards"></div></div></div>
+<div id="bottom"><div id="portrait"></div><div id="info"></div><div id="cards"></div><div id="actions"></div><div id="miniwrap"><canvas id="mini" width="240" height="186" role="img" aria-label="Minimapa"></canvas></div></div>
+<div id="tip"></div>
+<div id="hand"></div>
+<div id="tree"></div>
+<div id="score"></div>
+<div id="tut" hidden><div id="tut-hole"></div><div id="tut-arrow"></div><div id="tut-box" role="dialog" aria-label="Tutorial" aria-live="polite"><b></b><p></p><div><button class="tb" id="tut-next">Pular passo</button><button class="tb" id="tut-quit">Sair</button></div></div></div>
+<div id="overlay"></div>
+<script src="engine.js"></script>
+<script>
+const E = Engine, T = E.TILE;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const mini = document.getElementById('mini'), mctx = mini.getContext('2d');
+const $ = (id) => document.getElementById(id);
+let stepAcc = 0, wallDrag = null, buildCat = null, zoom = 1, S = null, cam = { x: 0, y: 0, tx: 0, ty: 0 }, sel = [], mode = null, ghost = null, mouse = { x: 0, y: 0, down: null }, keys = {}, groups = {}, paused = false, speed = 1, fx = [], lastHitT = -1, lastShotT = -1, deathsSeen = 0, hoverEnt = null;
+const FCOL = { citadel: '#7FE6F0', foundry: '#A8FF38', commons: '#5FE0B0' };
+const FNAME = { citadel: 'The Citadel', foundry: 'The Foundry', commons: 'The Commons' };
+const RCOL = { gpu: '#4E8CFF', data: '#3FD17A', research: '#E8C547' };
+const RNAME = { gpu: 'GPU', data: 'Dados', research: 'Pesquisa' };
+const GLYPH = { worker: '●', infantry: '▲', heavy: '◆', ranged: '◎', siege: '■', hero: '★' };
+const CLSNAME = { worker: 'Engineer', infantry: 'Infantaria', heavy: 'Pesado', ranged: 'À distância', siege: 'Cerco', hero: 'Herói' };
+const HOTKEY = { rack: 'R', datacenter: 'D', cluster: 'C', market: 'K', lab: 'L', alignlab: 'J', tower: 'T', wall: 'I', gate: 'O', agi: 'G' };
+const HERO_KEY = { ability: 'Q', ability2: 'W' }; // 4.3.2: remapeáveis em lobby.js (cw_keys)
+const ownerCol = (o) => E.ownerColor(S, o); // rival sempre vermelho; FCOL só vale para o jogador
+
+// ---- assets ----
+const IMG = {}; const img = (n) => IMG[n] && IMG[n].complete && IMG[n].naturalWidth ? IMG[n] : null;
+function load(n, src) { const i = new Image(); i.src = src; IMG[n] = i; }
+for (const u in E.UNITS) if (u !== 'engineer' && u !== 'caravan') load('u_' + u, `assets/u_${u}.png`); // caravana usa o sprite do Engineer
+for (const f of Object.keys(E.ROSTER)) { load(`u_${f}_engineer`, `assets/u_${f}_engineer.png`); load(`ui_emblem_${f}`, `assets/ui_emblem_${f}.png`); for (const b in E.BUILDINGS) load(`b_${f}_${b}`, `assets/b_${f}_${b}.png`); }
+for (const f of Object.keys(E.ROSTER)) for (const b in E.BUILDINGS) if (!E.BUILDINGS[b].wall && !E.BUILDINGS[b].gate) load(`bg_${f}_${b}`, `assets/b_${f}_${b}_glow.png`); // 3.1.2: máscaras de brilho (falha -> sem brilho); muro/portão não têm máscara (evita 404)
+for (const r in E.RES) load('r_' + r, `assets/r_${r}.png`);
+for (const b of [...Object.keys(E.UNITS).filter((u) => u !== 'engineer' && u !== 'caravan' && !E.ROSTER.commons.includes(u) && u !== E.HERO.commons), 'citadel_engineer', 'foundry_engineer']) for (const st of ['idle', 'walk', 'attack', 'death']) load(`a_${b}_${st}`, `assets/anim/${b}_${st}.png`); // 3.1.1: folhas 6 quadros 128x128 (falha -> sprite estático)
+load('tc_base', 'assets/t_commons_base.png'); load('tc_ink', 'assets/t_commons_ink.png'); // 4.1.3: praça em volta do HQ da Commons (falha -> bioma)
+load('t1', 'assets/t_ground1.png'); load('t2', 'assets/t_ground2.png');
+for (const n of ['base', 'moss', 'plaza', 'road']) load('tp_' + n, `assets/t_plateau_${n}.png`); // terreno v2 (falha -> t1/t2 e cores)
+const BIOME_TEX = [[], ['tb_foundry_base', 'tb_foundry_slag'], ['tb_hextech_base', 'tb_hextech_crystal']]; for (const b of BIOME_TEX) for (const n of b) load(n, `assets/t_${n.slice(3)}.png`); // 3.1.4: 2 texturas por bioma novo (falha -> Platô)
+for (let i = 0; i < E.RELICS.length; i++) load('relic_' + i, `assets/r_relic_${i}.png`); // reliquias de Dataset (falha -> cristal procedural)
+for (const p of E.PROPS) load('p_' + p, `assets/p_${p}.png`);
+for (const r in E.RES) for (let v = 1; v <= 3; v++) load(`r_${r}_${v}`, `assets/r_${r}_${v}.png`);
+const unitImgName = (e) => e.type === 'engineer' || e.type === 'caravan' ? `u_${S.players[e.owner < 0 ? 0 : e.owner].faction}_engineer` : 'u_' + e.type;
+const spriteOf = (e) => e.kind === 'unit' ? img(unitImgName(e)) : e.kind === 'building' ? img(`b_${S.players[e.owner].faction}_${e.type}`) : img(`r_${e.rtype}_${e.variant}`) || img('r_' + e.rtype);
+const unitSize = (u) => ({ worker: 44, infantry: 52, ranged: 52, heavy: 64, siege: 70, hero: 70 })[E.UNITS[u.type].cls] + (E.UNITS[u.type].tier === 4 ? 10 : 0);
+const plateR = (u) => ({ worker: 13, infantry: 16, ranged: 16, heavy: 19, siege: 21, hero: 20 })[E.UNITS[u.type].cls];
+</script>
+<script src="audio.js"></script>
+<script src="ui-world.js"></script>
+<script src="ui-panel.js"></script>
+<script src="campaign.js"></script>
+<script src="techniques.js"></script>
+<script src="teams.js"></script>
+<script>
+// ---- telas ----
+function resize() { cv.width = innerWidth; cv.height = innerHeight; }
+addEventListener('resize', resize); resize();
+let chosen = 'citadel';
+function startScreen() {} // a tela inicial é o lobby (lobby.js, carregado por último, substitui esta)
+function begin(state, fresh) { S = state; S.record = !S.spectate; if (S.campaign) S.cmds = null; /* missões mexem no estado por script: sem replay */ stepAcc = 0; document.body.classList.toggle('spectate', !!S.spectate); sel = []; groups = {}; fx = []; orders = []; paused = false; speed = 1; deathsSeen = S.deaths.length; logSeen = S.log.length; eraPrev = 0; groundCv = null; fogStamp = -1; resHist = {}; document.body.dataset.f = S.players[0].faction; $('overlay').style.display = 'none'; const h = myHQ(); zoom = fresh ? 1 : 1.4; if (h) centerOn(h.x, h.y, true); cam.x = cam.tx; cam.y = cam.ty; intro = fresh ? { t: 0 } : null; if (intro) startIntro(); refreshPanel(); last = performance.now(); Audio.ambient(S.players[0].faction); SFX.confirm(); requestAnimationFrame(loop); }
+// ---- abertura (2.5.10): fade 1 s, zoom 1,0 -> 1,4 em 1,2 s (ease-out), faixa e som; 2,5 s no total, Esc pula ----
+let intro = null;
+function startIntro() { const f = $('fade'); f.style.transition = 'none'; f.style.opacity = 1; void f.offsetWidth; f.style.transition = 'opacity 1s linear'; f.style.opacity = 0; bannerShow(E.ERAS[0], `${FNAME[S.players[0].faction]} · Selecione seus Engineers e clique com o botão direito num lago de Dados`); $('banner').classList.add('intro'); SFX.open(); }
+function endIntro(skip) { intro = null; zoom = 1.4; const h = myHQ(); if (h) centerOn(h.x, h.y, true); if (skip) { const f = $('fade'); f.style.transition = 'none'; f.style.opacity = 0; $('banner').classList.remove('show'); } }
+addEventListener('keydown', (e) => { if (intro && e.key === 'Escape') endIntro(true); });
+function endScreen() {
+  const o = $('overlay'), st = (p) => p.stats; o.style.display = 'flex'; Audio.stopAmbient(); (S.winner === 0 ? SFX.victory : SFX.defeat)();
+  const P = S.players, row = (k, f) => `<tr><td>${k}</td>${P.map((p, i) => `<td>${typeof f === 'function' ? f(p) : i ? '' : f}</td>`).join('')}</tr>`, sum = (p) => Math.round(Object.values(st(p).gathered).reduce((a, b) => a + b, 0)); // 4.2.2: uma coluna por jogador
+  o.innerHTML = `<div class="box"><h1 class="metal-text">${S.winner === 0 ? 'VITÓRIA' : 'DERROTA'}</h1><h2>${S.winner === 0 ? 'Seu laboratório domina o mercado' : 'A Confiança Pública do seu laboratório chegou a zero'}</h2>
+    <table><tr><td></td>${P.map((p) => `<td><b style="color:${ownerCol(p.id)}">${p.name}</b></td>`).join('')}</tr>${row('Tempo', fmt(S.t))}${row('Era', (p) => E.ERAS[p.era - 1])}${row('Coletado', sum)}${row('Unidades treinadas', (p) => st(p).trained)}${row('Abates', (p) => st(p).kills)}${row('Perdas', (p) => st(p).losses)}${row('Prédios construídos', (p) => st(p).built)}${row('Prédios destruídos', (p) => st(p).destroyed)}${row('Tecnologias', (p) => Object.keys(p.techs).length)}</table>
+    <button class="cta" onclick="startScreen()">Voltar ao menu</button></div>`;
+  if (typeof Replay !== 'undefined') Replay.end(o.querySelector('.box')); // 4.2.5: guarda o replay, gráfico por minuto e "Ver replay"
+}
+const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+startScreen();
+
+// ---- utilidades ----
+const myHQ = () => S.ents.find((e) => e.type === 'hq' && e.owner === 0);
+let PANEL_H = 200; const viewH = () => cv.height - 44 - PANEL_H; // 3.3.7: PANEL_H segue a escala da UI
+const vw = () => cv.width / zoom, vh = () => cv.height / zoom;
+// 3.5.5: mapa inteiro (N): zoom em que 72x54 tiles cabem na area de jogo; clique no mapa volta ao zoom anterior naquele ponto (mousedown); loop centra o mapa quando ele cabe
+let fullMap = null;
+function toggleFullMap() { if (fullMap) { const c = { x: cam.x + vw() / 2, y: cam.y + (44 + viewH() / 2) / zoom }; zoom = fullMap.z; fullMap = null; centerOn(c.x, c.y, true); } else { fullMap = { z: zoom }; zoom = Math.min(cv.width / (E.MAP_W * T), viewH() / (E.MAP_H * T)); } }
+function setZoom(z, sx, sy) { fullMap = null; z = Math.max(0.5, Math.min(2.2, z)); sx = sx == null ? cv.width / 2 : sx; sy = sy == null ? cv.height / 2 : sy; const wx = cam.x + sx / zoom, wy = cam.y + sy / zoom; zoom = z; cam.x = cam.tx = wx - sx / zoom; cam.y = cam.ty = wy - sy / zoom; }
+function centerOn(x, y, instant) { cam.tx = x - vw() / 2; cam.ty = y - (44 + viewH() / 2) / zoom; if (instant) { cam.x = cam.tx; cam.y = cam.ty; } }
+const toWorld = (sx, sy) => ({ x: sx / zoom + cam.x, y: sy / zoom + cam.y });
+const seenAt = (e) => S.seen[Math.floor(e.y / T) * E.MAP_W + Math.floor(e.x / T)];
+const visible = (e) => e.owner === 0 || e.kind === 'resource' || E.visibleTo0(S, e);
+function entAt(wx, wy) {
+  let best = null, bd = 1e9;
+  for (const e of S.ents) { if (!visible(e) || !seenAt(e)) continue; const r = e.kind === 'building' ? Math.max(e.w, e.h) * T / 2 : e.kind === 'resource' ? T / 2 : unitSize(e) / 2.2; const d = Math.hypot(e.x - wx, e.y - (e.kind === 'unit' ? wy + unitSize(e) / 3 : wy)); if (d <= r && d < bd) { bd = d; best = e; } }
+  return best;
+}
+const selected = () => sel.map((id) => E.byId(S, id)).filter(Boolean);
+const engineers = () => selected().filter((e) => e.kind === 'unit' && e.type === 'engineer');
+const myHero = () => S.ents.find((e) => e.kind === 'unit' && e.owner === 0 && E.UNITS[e.type].hero);
+function select(ids) { sel = ids.filter((id) => E.byId(S, id)); buildCat = null; refreshPanel(); Voice.say(selected()[0], 'select'); }
+const entName = (e) => e.kind === 'unit' ? E.UNITS[e.type].name : e.kind === 'building' ? E.BUILDINGS[e.type].name : RNAME[e.rtype];
+let orders = [];
+function order(kind, x, y) { orders.push({ kind, x, y, t: 0 }); Voice.say(selected()[0], kind === 'attack' ? 'attack' : 'order'); }
+// as 12 mensagens com direção (espelho de docs/copy.md)
+const MSG = { noCluster: 'Sem Cluster: selecione um Engineer e pressione W', noEngineer: 'Sem Engineers: selecione o HQ e pressione 1 para treinar um', popFull: 'População cheia: com um Engineer, pressione E e construa um Server Rack', lack: (t) => `Faltam ${t}: ponha mais Engineers para coletar`, era: (e) => `Requer ${e}`, queueFull: 'Fila cheia (5): aguarde ou cancele o último item', noSpot: 'Não cabe aqui: escolha um terreno livre', noHero: 'Sem herói em campo: convoque no Lab HQ', noIdleEng: 'Nenhum Engineer ocioso: todos estão trabalhando', noIdleMil: 'Sem militares ociosos: treine no Cluster (W para construí-lo)', noAlert: 'Sem alertas por enquanto: nada atacou sua base', noBack: 'Nada para voltar: segure Espaço para ir ao último alerta' };
+// motivo de recusa, em texto
+function why(cost, era, popNeed, extra) { const p = S.players[0]; if (extra) return extra; if (era && p.era < era) return MSG.era(E.ERAS[era - 1]); const lack = Object.keys(cost || {}).filter((k) => p.res[k] < cost[k]); if (lack.length) return MSG.lack(lack.map((k) => `${Math.ceil(cost[k] - p.res[k])} ${RNAME[k]}`).join(' e ')); if (popNeed && E.pop(S, 0) + popNeed > E.popCap(S, 0)) return MSG.popFull; return null; }
+
+// ---- input ----
+cv.addEventListener('contextmenu', (e) => e.preventDefault());
+let prevSel = [], lastClick = 0;
+// 3.5.1: botão do meio (ou Espaço+arrastar) move o mapa; ao soltar, desliza (E.glide)
+let pan = null, panV = { x: 0, y: 0 }, spaceT = 0, spaceUsed = false, backPos = null;
+function panStart(e) { e.preventDefault(); pan = { x: e.clientX, y: e.clientY, t: performance.now() }; panV = { x: 0, y: 0 }; spaceUsed = true; }
+addEventListener('mousemove', (e) => { if (!pan) return; const now = performance.now(), dt = Math.max(0.001, (now - pan.t) / 1000), dx = (e.clientX - pan.x) / zoom, dy = (e.clientY - pan.y) / zoom; cam.tx = cam.x -= dx; cam.ty = cam.y -= dy; panV = { x: -dx / dt * 0.5 + panV.x * 0.5, y: -dy / dt * 0.5 + panV.y * 0.5 }; pan = { x: e.clientX, y: e.clientY, t: now }; });
+addEventListener('mouseup', () => { if (pan && performance.now() - pan.t > 80) panV = { x: 0, y: 0 }; pan = null; });
+cv.addEventListener('mousedown', (e) => {
+  if (S && (e.button === 1 || (e.button === 0 && (keys[' '] || e.metaKey || e.ctrlKey)))) return panStart(e);
+  if (!S || S.winner !== null) return; Audio.unlock(); const w = toWorld(e.offsetX, e.offsetY); prevSel = sel.slice();
+  if (fullMap && e.button === 0) { zoom = fullMap.z; fullMap = null; centerOn(w.x, w.y, true); return; }
+  if (e.button === 0) {
+    if (ghost && E.BUILDINGS[ghost].wall) { wallDrag = { tx: Math.floor(w.x / T), ty: Math.floor(w.y / T) }; return; } // muro: arrasta uma linha
+    if (ghost) { const d = E.BUILDINGS[ghost]; const tx = Math.floor(w.x / T) - Math.floor(d.w / 2), ty = Math.floor(w.y / T) - Math.floor(d.h / 2);
+      if (E.cmd(S, 0, { type: 'build', ids: engineers().map((u) => u.id), bt: ghost, tx, ty })) { SFX.build((tx + d.w / 2) * T, (ty + d.h / 2) * T); order('build', (tx + d.w / 2) * T, (ty + d.h) * T); if (!e.shiftKey) ghost = null; } else { SFX.deny(); toast(why(d.cost, d.era, 0, !E.canPlace(S, ghost, tx, ty) ? MSG.noSpot : null) || 'Não foi possível construir', 'alert'); } refreshPanel(); return; }
+    if (mode) { const t = entAt(w.x, w.y); const ids = selected().filter((u) => u.kind === 'unit').map((u) => u.id);
+      if (mode === 'rally') { const b = selected()[0]; E.cmd(S, 0, { type: 'rally', bid: b.id, x: w.x, y: w.y, id: t ? t.id : undefined }); order('rally', w.x, w.y); }
+      else if (mode === 'attack' && t && t.kind !== 'resource' && E.isEnemy(S, 0, t.owner)) { E.cmd(S, 0, { type: 'attack', ids, target: t.id }); order('attack', t.x, t.y); }
+      else { E.cmd(S, 0, { type: mode === 'attack' ? 'attackmove' : 'patrol', ids, x: w.x, y: w.y }); order(mode === 'attack' ? 'attack' : 'move', w.x, w.y); }
+      SFX.attack(w.x, w.y); mode = null; refreshPanel(); return; }
+    mouse.down = { x: e.offsetX, y: e.offsetY };
+  } else if (e.button === 2) { ghost = null; wallDrag = null; mode = null; rightClick(w); }
+});
+addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
+const wallLine = (a, w) => { const bx = Math.floor(w.x / T), by = Math.floor(w.y / T), horiz = Math.abs(bx - a.tx) >= Math.abs(by - a.ty), t = []; for (let i = 0, n = horiz ? Math.abs(bx - a.tx) : Math.abs(by - a.ty); i <= n; i++) t.push(horiz ? [a.tx + i * Math.sign(bx - a.tx || 1), a.ty] : [a.tx, a.ty + i * Math.sign(by - a.ty || 1)]); return t; };
+cv.addEventListener('mouseup', (e) => {
+  if (wallDrag && e.button === 0) { const w = toWorld(e.offsetX, e.offsetY), tiles = wallLine(wallDrag, w); wallDrag = null; if (E.cmd(S, 0, { type: 'buildline', ids: engineers().map((u) => u.id), bt: ghost, tiles })) { SFX.build(w.x, w.y); order('build', w.x, w.y); if (!e.shiftKey) ghost = null; } else { SFX.deny(); toast(why(E.BUILDINGS[ghost].cost, E.BUILDINGS[ghost].era, 0, 'Não cabe aqui: escolha um terreno livre') , 'alert'); } refreshPanel(); return; }
+  if (!S || e.button !== 0 || !mouse.down) return;
+  const a = mouse.down, b = { x: e.offsetX, y: e.offsetY }; mouse.down = null; let ids;
+  if (Math.abs(a.x - b.x) < 5 && Math.abs(a.y - b.y) < 5) {
+    const w = toWorld(b.x, b.y); const t = entAt(w.x, w.y); ids = t ? [t.id] : [];
+    if (t && t.owner === 0 && t.kind === 'unit' && performance.now() - lastClick < 350) ids = S.ents.filter((u) => u.kind === 'unit' && u.owner === 0 && u.type === t.type && u.x > cam.x && u.x < cam.x + vw() && u.y > cam.y && u.y < cam.y + vh()).map((u) => u.id);
+    lastClick = performance.now();
+  } else { const A = toWorld(a.x, a.y), B = toWorld(b.x, b.y); const x0 = Math.min(A.x, B.x), x1 = Math.max(A.x, B.x), y0 = Math.min(A.y, B.y), y1 = Math.max(A.y, B.y);
+    ids = S.ents.filter((u) => u.kind === 'unit' && u.owner === 0 && u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1).map((u) => u.id);
+    if (ids.some((id) => E.byId(S, id).type !== 'engineer')) ids = ids.filter((id) => E.byId(S, id).type !== 'engineer'); }
+  if (e.shiftKey) ids = [...new Set([...prevSel, ...ids])];
+  select(ids); if (ids.length) SFX.click();
+});
+function rightClick(w) {
+  const es = selected(); const units = es.filter((u) => u.kind === 'unit' && u.owner === 0); const t = entAt(w.x, w.y);
+  if (!units.length) { if (es.length === 1 && es[0].kind === 'building' && es[0].owner === 0 && es[0].built) { E.cmd(S, 0, { type: 'rally', bid: es[0].id, x: w.x, y: w.y, id: t ? t.id : undefined }); order('rally', w.x, w.y); SFX.confirm(); } return; }
+  const ids = units.map((u) => u.id);
+  const rl = S.relics.find((r) => r.lab == null && Math.hypot(r.x - w.x, r.y - w.y) < 26 && S.seen[Math.floor(r.y / T) * E.MAP_W + Math.floor(r.x / T)]);
+  if (rl && E.cmd(S, 0, { type: 'carryRelic', ids, relic: rl.id })) { order('gather', rl.x, rl.y); SFX.gather(rl.x, rl.y); toast(`Engineers vão buscar ${rl.name}`, 'info'); return; }
+  if (!t) { E.cmd(S, 0, { type: 'move', ids, x: w.x, y: w.y }); order('move', w.x, w.y); SFX.move(w.x, w.y); return; }
+  if (t.kind === 'resource') { if (E.cmd(S, 0, { type: 'gather', ids, target: t.id })) { order('gather', t.x, t.y); SFX.gather(t.x, t.y); } else { E.cmd(S, 0, { type: 'move', ids, x: w.x, y: w.y }); order('move', w.x, w.y); SFX.move(w.x, w.y); } return; }
+  if (t.owner === 0 && t.kind === 'building' && t.type === 'datacenter' && E.cmd(S, 0, { type: 'caravan', ids, target: t.id })) { order('move', t.x, t.y); SFX.confirm(); toast('Caravana em rota: Exchange → Data Center', 'info'); return; } // 3.2.6
+  if (t.owner === 0 && t.kind === 'building' && t.built && E.BUILDINGS[t.type].garrison && !(t.hp < t.maxHp && units.every((u) => u.type === 'engineer')) && E.cmd(S, 0, { type: 'garrison', ids: units.filter((u) => !E.UNITS[u.type].hero).map((u) => u.id), bid: t.id })) { order('move', t.x, t.y); SFX.move(t.x, t.y); return; }
+  if (t.owner === 0 && t.kind === 'unit' && E.UNITS[t.type].cls !== 'worker' && t.hp < t.maxHp && units.some((u) => u.type === 'engineer') && E.cmd(S, 0, { type: 'repair', ids, target: t.id })) { order('build', t.x, t.y); SFX.build(t.x, t.y); return; }
+  if (t.owner === 0 && t.kind === 'building' && (!t.built || t.hp < t.maxHp)) { if (E.cmd(S, 0, { type: 'repair', ids, target: t.id })) { order('build', t.x, t.y + t.h * T / 2); SFX.build(t.x, t.y); } else { E.cmd(S, 0, { type: 'move', ids, x: w.x, y: w.y }); order('move', w.x, w.y); SFX.move(w.x, w.y); } return; }
+  if (E.isEnemy(S, 0, t.owner)) { E.cmd(S, 0, { type: 'attack', ids, target: t.id }); order('attack', t.x, t.y); SFX.attack(t.x, t.y); return; }
+  E.cmd(S, 0, { type: 'move', ids, x: w.x, y: w.y }); order('move', w.x, w.y); SFX.move(w.x, w.y);
+}
+// ---- 3.2.1 posturas / 3.2.2 guarnição (bloco da frente mec-a) ----
+const STANCE = { z: ['aggressive', 'Agressiva', 'Persegue tudo que vê.'], x: ['defensive', 'Defensiva', 'Só reage ao que chega perto e volta ao ponto de origem.'], c: ['hold', 'Parada', 'Não persegue: só ataca o que entra no alcance.'] };
+const milSel = (es) => es.filter((u) => u.kind === 'unit' && u.owner === 0 && !E.UNITS[u.type].gather);
+function setStance(k) { const us = milSel(selected()); if (!us.length) return; E.cmd(S, 0, { type: 'stance', ids: us.map((u) => u.id), v: STANCE[k][0] }); toast(`Postura: ${STANCE[k][1]}`, 'info'); SFX.click(); refreshPanel(); }
+function garrisonSel() { const us = selected().filter((u) => u.kind === 'unit' && u.owner === 0 && !E.UNITS[u.type].hero); if (us.length && E.cmd(S, 0, { type: 'garrison', ids: us.map((u) => u.id) })) SFX.move(us[0].x, us[0].y); else { SFX.deny(); toast('Nenhum HQ ou torre para guarnecer', 'alert'); } }
+addEventListener('keydown', (e) => {
+  if (!S || S.winner !== null) return; const k = e.key.toLowerCase(); keys[k] = true;
+  if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+  const es = selected(); const b1 = es.length === 1 && es[0].kind === 'building' && es[0].owner === 0 ? es[0] : null;
+  if (e.key === 'Escape') { ghost = null; wallDrag = null; mode = null; }
+  else if (e.key === 'Tab') { e.preventDefault(); if (treeTimer) toggleTree(false); else if (!e.repeat) toggleScore(true); } // 3.3.4 placar segurado; fecha a árvore se aberta
+  else if (k === 't' && !engineers().length && !e.metaKey && !e.ctrlKey) toggleTree(); // 3.3.2 (com Engineers, T segue sendo Firewall Tower)
+  else if (k === ' ') { e.preventDefault(); if (!e.repeat) { spaceT = performance.now(); spaceUsed = false; } } // toque = pausa (no keyup); segurado = último alerta (no loop)
+  else if (e.key === 'Backspace') { e.preventDefault(); if (backPos) { cam.tx = backPos.x; cam.ty = backPos.y; backPos = null; } else toast(MSG.noBack, 'info'); }
+  else if (e.key === 'Home') { e.preventDefault(); const ids = E.idleIds(S, 0, 'military'); if (ids.length) { select(ids); SFX.click(); } else toast(MSG.noIdleMil, 'info'); }
+  else if (e.key === 'End') { e.preventDefault(); const ids = E.idleIds(S, 0, 'engineer'); if (ids.length) { select(ids); SFX.click(); } else toast(MSG.noIdleEng, 'info'); }
+  else if ((k === '+' || k === '=') && !e.metaKey && !e.ctrlKey) speed = Math.min(3, speed + 0.5);
+  else if (k === '-' && !e.metaKey && !e.ctrlKey) speed = Math.max(0.5, speed - 0.5);
+  else if (e.key === 'Escape' || (k === 'b' && buildCat && !Object.values(HOTKEY).includes('B'))) { if (buildCat) SFX.back(); buildCat = null; refreshPanel(); }
+  else if (STANCE[k] && milSel(es).length && !engineers().length && !e.metaKey && !e.ctrlKey) setStance(k);
+  else if (k === 'g' && es.some((u) => u.kind === 'unit') && !engineers().length) garrisonSel();
+  else if (k === 'u' && b1 && b1.garrison && b1.garrison.length) { E.cmd(S, 0, { type: 'ungarrison', bid: b1.id }); SFX.confirm(); refreshPanel(); }
+  else if (k === 'a' && es.some((u) => u.kind === 'unit' && u.type !== 'engineer')) mode = 'attack';
+  else if (k === 'p' && es.some((u) => u.kind === 'unit')) mode = 'patrol';
+  else if (k === 's' && es.length) { E.cmd(S, 0, { type: 'stop', ids: sel }); SFX.click(); }
+  else if (k === 'h') { const h = myHQ(); if (h) { select([h.id]); centerOn(h.x, h.y); } }
+  else if (k === '.') { const idle = S.ents.filter((u) => u.kind === 'unit' && u.owner === 0 && u.type === 'engineer' && u.task.kind === 'idle'); if (idle.length) { const i = idle[(idle.findIndex((u) => sel[0] === u.id) + 1) % idle.length]; select([i.id]); centerOn(i.x, i.y); } else toast(MSG.noIdleEng, 'info'); }
+  else if (/^F[1-4]$/.test(e.key) && (e.ctrlKey || e.metaKey)) { e.preventDefault(); S.camFav[e.key[1]] = { x: cam.tx, y: cam.ty, z: zoom }; toast(`Câmera ${e.key} gravada`, 'info'); SFX.click(); } // 3.5.2: favoritos no save
+  else if (/^F[1-4]$/.test(e.key) && S.camFav[e.key[1]]) { e.preventDefault(); const f = S.camFav[e.key[1]]; zoom = f.z; fullMap = null; cam.tx = cam.x = f.x; cam.ty = cam.y = f.y; }
+  else if (/^F[2-4]$/.test(e.key)) { e.preventDefault(); toast(`Ctrl+${e.key} grava a câmera aqui`, 'info'); }
+  else if (k === 'm') { miniMode = (miniMode + 1) % 3; SFX.click(); } // 3.5.3
+  else if (k === 'n') toggleFullMap(); // 3.5.5
+  else if (e.key === 'F1') { e.preventDefault(); const h = myHero(); if (h) { select([h.id]); centerOn(h.x, h.y); } else toast(MSG.noHero, 'info'); }
+  else if (k === HERO_KEY.ability.toLowerCase()) useAbility(es.find((u) => u.kind === 'unit' && E.UNITS[u.type].hero) || myHero());
+  else if (k === HERO_KEY.ability2.toLowerCase() && !engineers().length && es.some((u) => u.kind === 'unit' && u.owner === 0 && E.UNITS[u.type].hero)) useAbility2(es.find((u) => u.kind === 'unit' && E.UNITS[u.type].hero));
+  else if (k === 'r' && b1 && b1.built) mode = 'rally';
+  else if (/^[1-9]$/.test(k) && (e.ctrlKey || e.metaKey)) { groups[k] = sel.slice(); e.preventDefault(); toast(`Grupo ${k} definido (${sel.length})`, 'info'); }
+  else if (/^[1-9]$/.test(k) && !b1 && groups[k]) { select(groups[k]); if (performance.now() - lastClick < 350 && sel.length) { const u = E.byId(S, sel[0]); centerOn(u.x, u.y); } lastClick = performance.now(); }
+  else if (engineers().length && !ghost && ['e', 'w', 'x', 'f', 'v'].includes(k)) { buildCat = { e: 'eco', w: 'mil', x: 'sci', f: 'def', v: 'win' }[k]; refreshPanel(); SFX.openCat(); }
+  else if (engineers().length && !ghost) { const bt = Object.keys(HOTKEY).find((b) => HOTKEY[b].toLowerCase() === k); if (bt) { const w = why(E.BUILDINGS[bt].cost, E.BUILDINGS[bt].era); if (w) { toast(w, 'alert'); SFX.deny(); } else ghost = bt; } }
+  else if (b1) { const list = E.trainable(S, b1); const idx = parseInt(k) - 1; if (!isNaN(idx) && list[idx]) train(b1, list[idx]); }
+});
+addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; if (e.key === ' ' && S && !spaceUsed && !intro && !/SELECT|INPUT|BUTTON/.test(e.target.tagName)) { paused = !paused; SFX.pause(); } });
+cv.addEventListener('wheel', (e) => { if (!S) return; e.preventDefault(); if (e.ctrlKey || e.metaKey || (OPT.wheel === 'zoom' && !e.shiftKey)) { setZoom(zoom * Math.exp(-e.deltaY * 0.0016), e.offsetX, e.offsetY); } else { cam.tx += e.deltaX / zoom; cam.ty += e.deltaY / zoom; } }, { passive: false });
+addEventListener('keydown', (e) => { if (!S || !(e.metaKey || e.ctrlKey)) return; if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom(zoom * 1.2); } else if (e.key === '-') { e.preventDefault(); setZoom(zoom / 1.2); } else if (e.key === '0') { e.preventDefault(); setZoom(1.25); } });
+// 3.5.3: minimapa. Modos (M), Shift+clique = waypoint de camera (a camera visita em ordem), botao direito: clique = mover, arrasto = ataque-mover
+const MINI_MODES = ['Terreno', 'Unidades', 'Economia'], DIM = {}, dimCol = (h) => DIM[h] || (DIM[h] = '#' + h.slice(1).match(/../g).map((c) => Math.round(parseInt(c, 16) * 0.55).toString(16).padStart(2, '0')).join('')); let miniMode = 0, miniDrag = false, camWps = [], miniR = null; // dimCol: explorado fora da visao a 55% (sem alpha: tiles sobrepostos nao marcam grade)
+const miniWorld = (e) => { const r = mini.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * E.MAP_W * T, y: (e.clientY - r.top) / r.height * E.MAP_H * T }; };
+function miniTo(e) { const w = miniWorld(e); centerOn(w.x, w.y, true); }
+addEventListener('mousemove', (e) => { if (miniDrag) miniTo(e); if (miniR) { const w = miniWorld(e); miniR.cx = w.x; miniR.cy = w.y; } });
+addEventListener('mouseup', () => { miniDrag = false; if (!miniR) return; const ids = selected().filter((u) => u.kind === 'unit' && u.owner === 0).map((u) => u.id), drag = miniR.cx != null && Math.hypot(miniR.cx - miniR.x, miniR.cy - miniR.y) > 40, x = drag ? miniR.cx : miniR.x, y = drag ? miniR.cy : miniR.y; miniR = null;
+  if (ids.length) { E.cmd(S, 0, { type: drag ? 'attackmove' : 'move', ids, x, y }); order(drag ? 'attack' : 'move', x, y); (drag ? SFX.attack : SFX.move)(); } });
+mini.addEventListener('mousedown', (e) => { e.preventDefault(); const w = miniWorld(e); if (e.button === 2) miniR = { x: w.x, y: w.y }; else if (e.shiftKey) { camWps.push({ x: w.x, y: w.y, t: 0 }); SFX.click(); } else { miniDrag = true; centerOn(w.x, w.y, true); } });
+mini.addEventListener('contextmenu', (e) => e.preventDefault());
+addEventListener('mouseover', (e) => { const b = e.target.closest && e.target.closest('[data-tip]'); const tip = $('tip'); if (b) { tip.innerHTML = b.dataset.tip; tip.style.display = 'block'; const r = b.getBoundingClientRect(); tip.style.left = Math.min(innerWidth - 310, r.left) + 'px'; tip.style.top = (r.top - 10 - tip.offsetHeight) + 'px'; } else tip.style.display = 'none'; });
+function useAbility(h) { if (!h) return; const a = E.HEROES[h.type].ability; if (E.cmd(S, 0, { type: 'ability', id: h.id })) { SFX.ability(h.x, h.y); Voice.say(h, 'ability'); fx.push({ kind: 'ring', x: h.x, y: h.y, r: a.radius * T, t: 0, dur: 0.9, col: ownerCol(0), w: 4 }); fx.push({ kind: 'text', x: h.x, y: h.y - 40, t: 0, dur: 1.2, col: '#E8C547', text: a.name.toUpperCase() }); } else { SFX.deny(); toast(h.abilityCd > 0 ? `${a.name} recarrega em ${Math.ceil(h.abilityCd)} s` : 'Habilidade indisponível', 'alert'); } refreshPanel(); }
+// 3.2.8 habilidade 2 (nível 5+) e talentos (modal com dois cartões nos níveis 3/6/9)
+function useAbility2(h) { if (!h) return; const a = E.HEROES[h.type].ability2; if (E.cmd(S, 0, { type: 'ability2', id: h.id })) { SFX.ability(h.x, h.y); fx.push({ kind: 'ring', x: h.x, y: h.y, r: 3 * T, t: 0, dur: 0.9, col: '#E8C547', w: 4 }); fx.push({ kind: 'text', x: h.x, y: h.y - 40, t: 0, dur: 1.2, col: '#E8C547', text: a.name.toUpperCase() }); } else { SFX.deny(); toast(E.heroLevel(h) < E.ABILITY2_LVL ? `${a.name} libera no nível ${E.ABILITY2_LVL}` : `${a.name} recarrega em ${Math.ceil(h.ability2Cd)} s`, 'alert'); } refreshPanel(); }
+let talentLvl = null;
+function talentModal() {
+  const pend = E.pendingTalents(S, 0), el = $('talent');
+  if (talentLvl && !pend.includes(talentLvl)) { talentLvl = null; el.classList.remove('open'); }
+  if (talentLvl || !pend.length) return;
+  talentLvl = pend[0]; paused = true; el.querySelector('h2').textContent = `Herói nível ${talentLvl}: escolha um talento`;
+  el.querySelector('.cards').innerHTML = E.TALENTS[talentLvl].map((t, i) => `<button class="card" data-k="${t.k}"><b>${t.name}</b>${t.desc}<kbd>${i + 1}</kbd></button>`).join('');
+  el.querySelectorAll('.card').forEach((b) => { b.onclick = () => pickTalent(b.dataset.k); }); el.classList.add('open'); el.querySelector('.card').focus(); SFX.levelup();
+}
+function pickTalent(k) { const t = talentLvl && E.TALENTS[talentLvl].find((x) => x.k === k); if (t && E.cmd(S, 0, { type: 'talent', lvl: talentLvl, k })) { toast(`Talento escolhido: ${t.name}`, 'info'); SFX.confirm(); paused = false; talentLvl = null; $('talent').classList.remove('open'); refreshPanel(); } }
+$('talent').addEventListener('keydown', (e) => { const i = parseInt(e.key) - 1; if (talentLvl && E.TALENTS[talentLvl][i]) { e.stopPropagation(); pickTalent(E.TALENTS[talentLvl][i].k); } });
+function train(b, ut) { const u = E.UNITS[ut], p = S.players[0]; const cost = u.hero && p.heroXp > 0 ? Object.fromEntries(Object.entries(u.cost).map(([k, v]) => [k, v / 2])) : u.cost; if (E.cmd(S, 0, { type: 'train', bid: b.id, ut })) { SFX.confirm(); } else { SFX.deny(); toast(why(cost, u.tier, u.pop, u.hero && E.heroAlive(S, 0) ? 'Herói já em campo ou na fila' : u.hero && S.t - p.heroDeadAt < 30 ? `Reconvocação em ${Math.ceil(30 - (S.t - p.heroDeadAt))} s` : b.queue.length >= 5 ? MSG.queueFull : null) || 'Não foi possível treinar', 'alert'); } refreshPanel(); }
+
+// ---- painel ----
+const costHtml = (c, time) => Object.keys(c || {}).filter((k) => c[k]).map((k) => `<span class="${k}${S.players[0].res[k] < c[k] ? ' lack' : ''}">${Math.round(c[k])}</span>`).join('') + (time ? `<span class="time">${time}s</span>` : '');
+// slots vazios completam a grade 5×3 (estilo AoE); sem cartão nenhum, a grade some
+function loop(now) {
+  if (!S) return;
+  const real = Math.min(0.1, (now - last) / 1000); last = now; const dt = paused || intro ? 0 : real * speed;
+  const sp = 640 * real / zoom, noSel = !sel.length;
+  if (keys.arrowup || (keys.w && noSel)) cam.ty -= sp; if (keys.arrowdown || (keys.s && noSel)) cam.ty += sp; if (keys.arrowleft || (keys.a && noSel)) cam.tx -= sp; if (keys.arrowright || (keys.d && noSel)) cam.tx += sp;
+  if (OPT.edge) { if (mouse.x <= 2) cam.tx -= sp; if (mouse.x >= cv.width - 2) cam.tx += sp; if (mouse.y <= 2) cam.ty -= sp; if (mouse.y >= cv.height - 2) cam.ty += sp; }
+  if (intro) { intro.t += real; const k = Math.min(1, intro.t / 1.2); zoom = 1 + 0.4 * (1 - Math.pow(1 - k, 3)); const h0 = myHQ(); if (h0) centerOn(h0.x, h0.y); if (intro.t >= 2.5) endIntro(false); }
+  if (keys[' '] && !spaceUsed && !pan && performance.now() - spaceT > 250) { spaceUsed = true; const a = E.lastAlertPos(S); if (a) { backPos = { x: cam.tx, y: cam.ty }; centerOn(a.x, a.y); } else toast(MSG.noAlert, 'info'); }
+  const xmax = E.MAP_W * T - vw(), ymax = E.MAP_H * T - (cv.width > 1800 ? cv.height : 44 + viewH()) / zoom;
+  if (!pan && (panV.x || panV.y)) { [cam.tx, panV.x] = E.glide(cam.tx, panV.x, real, 0, xmax); [cam.ty, panV.y] = E.glide(cam.ty, panV.y, real, -44 / zoom, ymax); cam.x = cam.tx; cam.y = cam.ty; }
+  if (camWps.length) { const w = camWps[0]; centerOn(w.x, w.y); if (Math.abs(cam.tx - cam.x) < 2 && Math.abs(cam.ty - cam.y) < 2) { w.t += real; if (w.t > 1) camWps.shift(); } } // 3.5.3: visita os waypoints, 1 s em cada
+  cam.tx = xmax < 0 ? xmax / 2 : Math.max(0, Math.min(xmax, cam.tx)); cam.ty = ymax < -44 / zoom ? (ymax - 44 / zoom) / 2 : Math.max(-44 / zoom, Math.min(ymax, cam.ty)); // >1800 px: o mundo aparece ao lado do painel centrado; mapa inteiro (3.5.5): centrado
+  if (intro) { cam.x = cam.tx; cam.y = cam.ty; }
+  const k = 1 - Math.pow(0.001, real); cam.x += (cam.tx - cam.x) * k; cam.y += (cam.ty - cam.y) * k; if (Math.abs(cam.tx - cam.x) < 0.5) cam.x = cam.tx; if (Math.abs(cam.ty - cam.y) < 0.5) cam.y = cam.ty;
+  if (dt > 0) { stepAcc += dt; while (stepAcc >= E.DT) { stepAcc -= E.DT; if (S.spectate) S = E.advance(S, S.t + E.DT); else E.step(S, E.DT); } } // 5.2.1: passo fixo (replay determinístico); espectador segue os comandos gravados
+  spawnFx(); for (const f of fx) f.t += real; fx = fx.filter((f) => f.t < f.dur); for (const o of orders) o.t += real; orders = orders.filter((o) => o.t < 0.9);
+  draw(); hud(); renderLog(); Sound.tick(S, real);
+  if (typeof Techniques !== 'undefined') Techniques.tick(); // 4.3.3 mão de Técnicas (desenha a mira por cima do mundo)
+  panelT += real; if (panelT > 0.4) { panelT = 0; sel = sel.filter((id) => E.byId(S, id)); if (!document.querySelector('#actions .cmd:hover')) refreshPanel(); if (!intro && !S.spectate) talentModal(); }
+  if (typeof Campaign !== 'undefined') Campaign.tick(S, real);
+  if (S.winner !== null) { endScreen(); return; }
+  requestAnimationFrame(loop);
+}
+</script>
+<script src="tutorial.js"></script>
+<script src="replay.js"></script>
+<script src="lobby.js"></script>
+</body>
+</html>
