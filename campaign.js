@@ -10,7 +10,7 @@
   // ---- helpers de posicionamento (mutação logo após createGame) ----
   const hqOf = (S, pid) => S.ents.find((e) => e.type === 'hq' && e.owner === pid);
   const put = (S, bt, owner, tx, ty) => { const sp = CE.findSpot(S, bt, tx, ty); if (!sp) return null; const b = CE.place(S, bt, sp[0], sp[1], owner); b.progress = 1; b.built = true; b.hp = b.maxHp; return b; };
-  const freeTile = (S, tx, ty) => { for (let r = 0; r < 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const x = tx + dx, y = ty + dy; if ((Math.abs(dx) === r || Math.abs(dy) === r) && x > 0 && y > 0 && x < CE.MAP_W - 1 && y < CE.MAP_H - 1 && !S.grid[y * CE.MAP_W + x]) return [x, y]; } return [tx, ty]; };
+  const freeTile = (S, tx, ty) => { for (let r = 0; r < 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const x = tx + dx, y = ty + dy; if ((Math.abs(dx) === r || Math.abs(dy) === r) && x > 0 && y > 0 && x < S.W - 1 && y < S.H - 1 && !S.grid[y * S.W + x]) return [x, y]; } return [tx, ty]; };
   // n unidades em grade de 3 colunas em volta do tile (tx, ty), cada uma num tile livre
   const squad = (S, types, owner, tx, ty) => types.map((t, i) => { const [x, y] = freeTile(S, tx + (i % 3) - 1, ty + Math.floor(i / 3)); return CE.spawn(S, t, owner, x * TL + TL / 2, y * TL + TL / 2); });
   const stance = (S, pid, us, v) => CE.cmd(S, pid, { type: 'stance', ids: us.map((u) => u.id), v });

@@ -4,32 +4,32 @@ let groundCv = null;
 function buildGround() {
   const settled = (n) => IMG[n] && IMG[n].complete; if (!['t1', 'tp_base', 'tp_moss', 'tp_plaza', 'tp_road', 'tc_base', 'tc_ink', ...BIOME_TEX.flat()].every(settled)) return; // espera o fim do carregamento (ok ou erro)
   const base = img('tp_base') || img('t1'), moss = img('tp_moss'); if (!base) return;
-  groundCv = document.createElement('canvas'); groundCv.width = E.MAP_W * T; groundCv.height = E.MAP_H * T; const g = groundCv.getContext('2d'), GW = groundCv.width, GH = groundCv.height;
+  groundCv = document.createElement('canvas'); groundCv.width = S.W * T; groundCv.height = S.H * T; const g = groundCv.getContext('2d'), GW = groundCv.width, GH = groundCv.height;
   const pat = (c, im, sc, rot) => { const p = c.createPattern(im, 'repeat'); if (p.setTransform) p.setTransform(new DOMMatrix().rotate(rot || 0).scale(sc)); return p; };
   const GRADE = 'saturate(1.2) contrast(1.12) brightness(.82)'; // texturas geradas vieram claras e lavadas: grading vivo (SC2/WC3)
   g.filter = GRADE; g.fillStyle = pat(g, base, img('tp_base') ? 0.5 : 1); g.fillRect(0, 0, GW, GH);
   if (img('tp_base')) { g.globalAlpha = 0.4; g.fillStyle = pat(g, base, 0.71, 31); g.fillRect(0, 0, GW, GH); g.globalAlpha = 1; } // 2a camada incomensuravel quebra a repeticao
   // ruído de valor suavizado para misturar a segunda textura
   const N = 9, lat = []; let sd = S.seed * 7919 + 13; const rnd = () => (sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296;
-  for (let j = 0; j <= Math.ceil(E.MAP_H / N) + 1; j++) { lat[j] = []; for (let i = 0; i <= Math.ceil(E.MAP_W / N) + 1; i++) lat[j][i] = rnd(); }
+  for (let j = 0; j <= Math.ceil(S.H / N) + 1; j++) { lat[j] = []; for (let i = 0; i <= Math.ceil(S.W / N) + 1; i++) lat[j][i] = rnd(); }
   const sm = (t) => t * t * (3 - 2 * t);
   const LW = lat[0].length, LH = lat.length; const L = (j, i) => lat[((j % LH) + LH) % LH][((i % LW) + LW) % LW];
   const noise = (x, y) => { const i = Math.floor(x / N), j = Math.floor(y / N), fx = sm(x / N - i), fy = sm(y / N - j); const a = L(j, i), b = L(j, i + 1), c = L(j + 1, i), d = L(j + 1, i + 1); return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy; };
   // mascaras a 1 px/tile ampliadas com suavizacao: manchas lisas, sem quadrados de tile
-  const lowres = (fn) => { const c = document.createElement('canvas'); c.width = E.MAP_W; c.height = E.MAP_H; const cc = c.getContext('2d'), id = cc.createImageData(E.MAP_W, E.MAP_H); for (let y = 0; y < E.MAP_H; y++) for (let x = 0; x < E.MAP_W; x++) id.data.set(fn(x, y), (y * E.MAP_W + x) * 4); cc.putImageData(id, 0, 0); return c; };
+  const lowres = (fn) => { const c = document.createElement('canvas'); c.width = S.W; c.height = S.H; const cc = c.getContext('2d'), id = cc.createImageData(S.W, S.H); for (let y = 0; y < S.H; y++) for (let x = 0; x < S.W; x++) id.data.set(fn(x, y), (y * S.W + x) * 4); cc.putImageData(id, 0, 0); return c; };
   // camada = textura recortada por mascara 1 px/tile ampliada (alpha 0..255); usada pelo musgo e pelos biomas
   const blend = (im, sc, mask) => { const lc = document.createElement('canvas'); lc.width = GW; lc.height = GH; const l = lc.getContext('2d'); l.filter = 'saturate(1.15) contrast(1.08)'; l.fillStyle = pat(l, im, sc); l.fillRect(0, 0, GW, GH); l.filter = 'none'; l.globalCompositeOperation = 'destination-in'; l.imageSmoothingEnabled = true; l.drawImage(lowres((x, y) => [255, 255, 255, Math.max(0, Math.min(255, mask(x, y)))]), 0, 0, GW, GH); g.drawImage(lc, 0, 0); };
   const detail = (x, y) => (0.7 * noise(x + 0.5, y + 0.5) + 0.3 * noise(x * 2.3 + 7, y * 2.3 + 3) - 0.5) * 4 * 255;
   const moss2 = moss || img('t2'); if (moss2) blend(moss2, moss ? 0.5 : 1, detail);
   // 3.1.4: biomas novos por tile (mascara dura a 1 px/tile, suavizada pela ampliacao: transicao ~1 tile, sem costura); textura ausente => fica Plato
-  const bio = (b) => (x, y) => S.biome[y * E.MAP_W + x] === b ? 255 : 0;
+  const bio = (b) => (x, y) => S.biome[y * S.W + x] === b ? 255 : 0;
   for (let b = 1; b <= 2; b++) { const [tb, td] = BIOME_TEX[b].map(img); if (!tb) continue; blend(tb, 0.5, bio(b)); if (td) blend(td, 0.5, (x, y) => bio(b)(x, y) && detail(x + 11, y + 5)); }
   const chq = S.ents.filter((h) => h.type === 'hq' && S.players[h.owner] && S.players[h.owner].faction === 'commons'), cdist = (x, y) => Math.min(...chq.map((h) => Math.hypot(x + 0.5 - h.x / T, y + 0.5 - h.y / T))); // 4.1.3: praça de pedra e cobre da Commons, raio 9 tiles com borda de 2
   if (chq.length && img('tc_base')) { blend(img('tc_base'), 0.5, (x, y) => (11 - cdist(x, y)) / 2 * 255); if (img('tc_ink')) blend(img('tc_ink'), 0.5, (x, y) => Math.min((11 - cdist(x, y)) / 2 * 255, detail(x + 3, y + 17))); }
   g.filter = 'none';
   // manchas de grande escala (so a oitava lenta do ruido): quente/frio em overlay, nao escurece
   g.globalCompositeOperation = 'overlay'; g.imageSmoothingEnabled = true; g.drawImage(lowres((x, y) => { const v = noise(x * 0.8 + 50, y * 0.8 + 80); return v > 0.5 ? [255, 180, 90, Math.min(110, (v - 0.5) * 320)] : [30, 120, 70, Math.min(130, (0.5 - v) * 400)]; }), 0, 0, GW, GH); g.globalCompositeOperation = 'source-over';
-  for (let y = 0; y < E.MAP_H; y++) for (let x = 0; x < E.MAP_W; x++) if (S.grid[y * E.MAP_W + x] === 3) rubble(g, x, y, rnd);
+  for (let y = 0; y < S.H; y++) for (let x = 0; x < S.W; x++) if (S.grid[y * S.W + x] === 3) rubble(g, x, y, rnd);
   // estradas HQ -> grupos da base: terra batida da cor do chao, borda irregular (varios tracos tremidos + blur), sulco fraco
   const rd = E.roads(S); if (rd.length) {
     const rc = document.createElement('canvas'); rc.width = GW; rc.height = GH; const r = rc.getContext('2d'), mk = document.createElement('canvas'); mk.width = GW; mk.height = GH; const m = mk.getContext('2d');
@@ -48,7 +48,7 @@ function rubble(g, x, y, rnd) { // pedras arredondadas da cor do chao, com sombr
   const cx = x * T + 16, cy = y * T + 18; g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(cx + 2, cy + 5, 16, 9, 0, 0, 7); g.fill();
   for (let k = 0; k < 3; k++) { const rx = cx - 8 + rnd() * 16, ry = cy - 6 + rnd() * 10, r = 4 + rnd() * 6, hue = 32 + rnd() * 12; const gr = g.createRadialGradient(rx - r * 0.4, ry - r * 0.5, r * 0.2, rx, ry, r); gr.addColorStop(0, `hsl(${hue},28%,66%)`); gr.addColorStop(1, `hsl(${hue},22%,34%)`); g.fillStyle = gr; g.beginPath(); g.ellipse(rx, ry, r, r * 0.75, rnd() * 3, 0, 7); g.fill(); } }
 // Névoa (2.5.2): canvas a 16 px/tile com 2 tiles de margem; máscaras 1 px/tile ampliadas com suavização dão o gradiente.
-const FOG_F = 16, FOG_P = 2, FOG_W = E.MAP_W + 2 * FOG_P, FOG_H = E.MAP_H + 2 * FOG_P;
+const FOG_F = 16, FOG_P = 2; let FOG_W = 0, FOG_H = 0; // onda5/mapa: dimensionado em buildFog pelo tamanho da partida
 const fogCv = document.createElement('canvas'); fogCv.width = FOG_W * FOG_F; fogCv.height = FOG_H * FOG_F; const fctx = fogCv.getContext('2d'); let fogStamp = -1, fogPat = null;
 const fogMaskU = document.createElement('canvas'), fogMaskN = document.createElement('canvas'), fogTmp = document.createElement('canvas'); for (const c of [fogMaskU, fogMaskN]) { c.width = FOG_W; c.height = FOG_H; } fogTmp.width = fogCv.width; fogTmp.height = fogCv.height;
 const satCv = document.createElement('canvas'); satCv.width = fogCv.width; satCv.height = fogCv.height; const sctx = satCv.getContext('2d'); // máscara cinza do explorado-fora-da-visão: blend 'saturation' dessatura o que está embaixo (2.5.2)
@@ -60,8 +60,9 @@ function fogPattern() { // pergaminho técnico: hexágonos (período 55x32 px de
   const id = g.getImageData(0, 0, c.width, c.height), d = id.data; let sd = 12345; for (let i = 0; i < d.length; i += 4) { sd = (sd * 1664525 + 1013904223) >>> 0; const n = ((sd >>> 24) % 5) - 2; d[i] += n; d[i + 1] += n; d[i + 2] += n; } g.putImageData(id, 0, 0);
   return c;
 }
-function fogMask(c, test) { const g = c.getContext('2d'), id = g.createImageData(FOG_W, FOG_H), d = id.data; for (let y = 0; y < FOG_H; y++) for (let x = 0; x < FOG_W; x++) { const mx = Math.min(E.MAP_W - 1, Math.max(0, x - FOG_P)), my = Math.min(E.MAP_H - 1, Math.max(0, y - FOG_P)); d[(y * FOG_W + x) * 4 + 3] = test(my * E.MAP_W + mx) ? 255 : 0; } g.putImageData(id, 0, 0); }
+function fogMask(c, test) { const g = c.getContext('2d'), id = g.createImageData(FOG_W, FOG_H), d = id.data; for (let y = 0; y < FOG_H; y++) for (let x = 0; x < FOG_W; x++) { const mx = Math.min(S.W - 1, Math.max(0, x - FOG_P)), my = Math.min(S.H - 1, Math.max(0, y - FOG_P)); d[(y * FOG_W + x) * 4 + 3] = test(my * S.W + mx) ? 255 : 0; } g.putImageData(id, 0, 0); }
 function buildFog() {
+  if (FOG_W !== S.W + 2 * FOG_P || FOG_H !== S.H + 2 * FOG_P) { FOG_W = S.W + 2 * FOG_P; FOG_H = S.H + 2 * FOG_P; for (const c of [fogCv, fogTmp, satCv]) { c.width = FOG_W * FOG_F; c.height = FOG_H * FOG_F; } for (const c of [fogMaskU, fogMaskN]) { c.width = FOG_W; c.height = FOG_H; } } // tamanho da partida mudou
   const W = fogCv.width, H = fogCv.height, sm = (c, blur) => { fctx.imageSmoothingEnabled = true; fctx.filter = blur ? `blur(${blur}px)` : 'none'; fctx.drawImage(c, 0, 0, W, H); fctx.filter = 'none'; };
   fogMask(fogMaskU, (i) => !S.seen[i]); fogMask(fogMaskN, (i) => !S.vis[i]);
   sctx.globalCompositeOperation = 'source-over'; sctx.clearRect(0, 0, W, H); sctx.imageSmoothingEnabled = true; sctx.filter = 'blur(5px)'; sctx.drawImage(fogMaskN, 0, 0, W, H); sctx.filter = 'none'; sctx.globalCompositeOperation = 'source-in'; sctx.fillStyle = '#808080'; sctx.fillRect(0, 0, W, H);
@@ -106,13 +107,18 @@ function drawLive(e, bx, by, size, now) {
   for (let i = 0; i < 3; i++) { const t = (now * 0.5 + i / 3 + e.id * 0.17) % 1; ctx.fillStyle = `rgba(225,230,235,${0.35 * (1 - t)})`; ctx.beginPath(); ctx.arc(e.x + (i - 1) * size * 0.14 + Math.sin(t * 5 + i) * 4, by + size * 0.3 - t * 38, 4 + t * 9, 0, 7); ctx.fill(); }
 }
 // 3.1.1: desenha a unidade com a folha animada do estado (idle/walk/attack); sem folha, sprite estático com o lunge antigo
+const WALK = {}; /* shortcut: cresce com os ids da sessão (alguns KB por partida); limpar no begin() se virar problema */
 function drawUnit(e, sp, sz, isSel, isHover, col) {
   const base = e.type === 'engineer' ? `${S.players[e.owner < 0 ? 0 : e.owner].faction}_engineer` : e.type, st = E.animState(S, e), sh = img(`a_${base}_${st}`) || img(`a_${base}_idle`);
   const lg = !sh && e.lunge && S.t - e.lunge < 0.18 ? Math.sin((S.t - e.lunge) / 0.18 * Math.PI) * 7 : 0;
-  ctx.save(); ctx.translate(e.x + lg * (e.facing || 1), e.y - lg * 0.4); if (e.facing === -1) ctx.scale(-1, 1); if (e.owner === -1) ctx.filter = 'hue-rotate(250deg) saturate(1.7)'; if (isSel || isHover) { ctx.shadowColor = col; ctx.shadowBlur = 14; }
+  /* passada pela distância andada (não pelo relógio): as folhas geradas mal trocam os pés, então quadro, balanço e inclinação seguem o chão percorrido e o boneco não desliza */
+  const m = WALK[e.id] || (WALK[e.id] = { x: e.x, y: e.y, d: 0 }), dd = Math.hypot(e.x - m.x, e.y - m.y); if (dd < 40) m.d += dd; m.x = e.x; m.y = e.y;
+  const ph = m.d / (sz * 0.85) * Math.PI * 2, walking = st === 'walk', bob = walking ? -Math.abs(Math.sin(ph)) * sz * 0.1 : 0, tilt = walking ? Math.sin(ph) * 0.09 : 0, sq = walking ? 1 + Math.cos(ph * 2) * 0.035 : 1;
+  if (walking && Math.abs(Math.sin(ph)) < 0.12) { ctx.fillStyle = 'rgba(190,170,140,.28)'; ctx.beginPath(); ctx.ellipse(e.x - (e.facing || 1) * sz * 0.12, e.y + 10, sz * 0.13, sz * 0.05, 0, 0, 7); ctx.fill(); } /* poeira no apoio do pé */
+  ctx.save(); ctx.translate(e.x + lg * (e.facing || 1), e.y - lg * 0.4 + bob); if (e.facing === -1) ctx.scale(-1, 1); ctx.rotate(tilt); ctx.scale(1 / sq, sq); if (e.owner === -1) ctx.filter = 'hue-rotate(250deg) saturate(1.7)'; if (isSel || isHover) { ctx.shadowColor = col; ctx.shadowBlur = 14; }
   if (sh && img(`a_${base}_${st}`)) {
-    const f = st === 'attack' ? Math.min(5, Math.floor((S.t - e.lunge) / 0.5 * 6)) : Math.floor(S.t * (st === 'walk' ? 12 : 4) + e.id * 3) % 6, d = sz * 128 / 118, bob = st === 'walk' ? -Math.abs(Math.sin(Math.PI * f / 3)) * 1.5 : 0;
-    ctx.drawImage(sh, f * 128, 0, 128, 128, -d / 2, -d + 12 + d * 4 / 128 + bob, d, d);
+    const f = st === 'attack' ? Math.min(5, Math.floor((S.t - e.lunge) / 0.5 * 6)) : walking ? Math.floor(ph / (Math.PI * 2) * 6 + e.id) % 6 : Math.floor(S.t * 4 + e.id * 3) % 6, d = sz * 128 / 118;
+    ctx.drawImage(sh, f * 128, 0, 128, 128, -d / 2, -d + 12 + d * 4 / 128, d, d);
   } else ctx.drawImage(sp, -sz / 2, -sz + 12, sz, sz);
   ctx.restore();
 }
@@ -120,16 +126,16 @@ function drawUnit(e, sp, sz, isSel, isHover, col) {
 const dayPhase = () => 1 - Math.abs(((S.t / 1200) % 2) - 1), nightOf = () => Math.max(0, Math.min(1, (dayPhase() - 0.3) / 0.45)); // noite plena a partir de 15:00
 function dayTint() { const f = dayPhase(), n = nightOf(), d = Math.max(0, 1 - f / 0.25), c = [[255, 228, 200], [255, 255, 255], [170, 182, 222]]; return `rgb(${c[1].map((v, i) => Math.round((v + (c[0][i] - v) * d) * (1 - n) + c[2][i] * n)).join(',')})`; }
 function drawRes(sp, e, s) { s *= e.sc || 1; ctx.save(); ctx.translate(e.x, 0); if (e.flip) ctx.scale(-1, 1); ctx.drawImage(sp, -s / 2, e.y + 10 - s, s, s); ctx.restore(); }
-function drawProp(e) { const im = img('p_' + e.p.type); if (!im) return; const s = (['neonpole', 'antenna', 'streetsign', 'column'].includes(e.p.type) ? 48 : 35) * e.p.sc; ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(e.x + 2, e.y + 9, s * 0.3, s * 0.12, 0, 0, 7); ctx.fill(); ctx.save(); ctx.translate(e.x, 0); if (e.p.f) ctx.scale(-1, 1); ctx.drawImage(im, -s / 2, e.y + 12 - s, s, s); ctx.restore(); } // 65% do tamanho antigo: nao compete com unidades
+function drawProp(e) { const t = e.p.type, im = img('p_' + t) || ARTE.procImg(t); if (!im) return; const s = ARTE.size(t) * e.p.sc; ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(e.x + 2, e.y + 9, s * 0.3, s * 0.12, 0, 0, 7); ctx.fill(); ctx.save(); ctx.translate(e.x, 0); if (e.p.f) ctx.scale(-1, 1); ctx.drawImage(im, -s / 2, e.y + 12 - s, s, s); ctx.restore(); ARTE.glow(ctx, e.x, e.y, s, t, e.p.f, nightOf()); } // 5.1.5: imagem ou procedural; luminosos acendem à noite
 function draw() {
   const W = cv.width, H = cv.height, now = performance.now() / 1000;
   ctx.fillStyle = '#04070b'; ctx.fillRect(0, 0, W, H);
   if (!groundCv) buildGround();
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-cam.x, -cam.y);
-  const tx0 = Math.max(0, Math.floor(cam.x / T)), ty0 = Math.max(0, Math.floor(cam.y / T)), tx1 = Math.min(E.MAP_W, Math.ceil((cam.x + W / zoom) / T)), ty1 = Math.min(E.MAP_H, Math.ceil((cam.y + H / zoom) / T));
+  const tx0 = Math.max(0, Math.floor(cam.x / T)), ty0 = Math.max(0, Math.floor(cam.y / T)), tx1 = Math.min(S.W, Math.ceil((cam.x + W / zoom) / T)), ty1 = Math.min(S.H, Math.ceil((cam.y + H / zoom) / T));
   if (groundCv) ctx.drawImage(groundCv, tx0 * T, ty0 * T, (tx1 - tx0) * T, (ty1 - ty0) * T, tx0 * T, ty0 * T, (tx1 - tx0) * T, (ty1 - ty0) * T); else { ctx.fillStyle = '#15221a'; ctx.fillRect(tx0 * T, ty0 * T, (tx1 - tx0) * T, (ty1 - ty0) * T); }
-  const wm = toWorld(mouse.x, mouse.y); hoverEnt = (mouse.y > 44 && mouse.y < H - PANEL_H) ? entAt(wm.x, wm.y) : null;
-  const ents = S.ents.filter((e) => e.x > cam.x - 140 && e.x < cam.x + W / zoom + 140 && e.y > cam.y - 180 && e.y < cam.y + H / zoom + 140 && seenAt(e) && (e.kind === 'building' || visible(e))).concat(S.props.filter((p) => p.x > cam.x - 60 && p.x < cam.x + W / zoom + 60 && p.y > cam.y - 60 && p.y < cam.y + H / zoom + 80 && seenAt(p)).map((p) => ({ kind: 'prop', x: p.x, y: p.y, p }))).sort((a, b) => (a.kind === 'building' ? a.y + a.h * T / 2 : a.y) - (b.kind === 'building' ? b.y + b.h * T / 2 : b.y));
+  const wm = toWorld(mouse.x, mouse.y); hoverEnt = (mouse.cv && mouse.y > 44 && mouse.y < H - PANEL_H) ? entAt(wm.x, wm.y) : null;
+  const ents = S.ents.filter((e) => e.x > cam.x - 140 && e.x < cam.x + W / zoom + 140 && e.y > cam.y - 180 && e.y < cam.y + H / zoom + 140 && seenAt(e) && (e.kind === 'building' || visible(e))).concat(ARTE.props(S, E).filter((p) => p.x > cam.x - 60 && p.x < cam.x + W / zoom + 60 && p.y > cam.y - 60 && p.y < cam.y + H / zoom + 80 && seenAt(p) && ARTE.clear(S, E, p)).map((p) => ({ kind: 'prop', x: p.x, y: p.y, p }))).sort((a, b) => (a.kind === 'building' ? a.y + a.h * T / 2 : a.y) - (b.kind === 'building' ? b.y + b.h * T / 2 : b.y));
   // camada de chão: footprints, placas, marcadores de ordem
   for (const e of ents) if (e.kind === 'building' && !E.BUILDINGS[e.type].wall && !E.BUILDINGS[e.type].gate) plaza(e);
   const night = nightOf(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = dayTint(); ctx.fillRect(tx0 * T, ty0 * T, (tx1 - tx0) * T, (ty1 - ty0) * T); ctx.globalCompositeOperation = 'source-over'; // 3.1.3: luz do dia sobre chao + pracas
@@ -175,9 +181,9 @@ function draw() {
     }
   }
   // reliquias de Dataset (guardadas ficam sobre o Lab; carregadas, sobre o Engineer)
-  for (const r of S.relics) { if (!S.seen[Math.floor(r.y / T) * E.MAP_W + Math.floor(r.x / T)] || (r.by != null && !visible(E.byId(S, r.by) || r))) continue; drawRelic(r, now); }
+  for (const r of S.relics) { if (!S.seen[Math.floor(r.y / T) * S.W + Math.floor(r.x / T)] || (r.by != null && !visible(E.byId(S, r.by) || r))) continue; drawRelic(r, now); }
   // projéteis
-  for (const pr of S.projectiles) { if (!S.vis[Math.floor(pr.y / T) * E.MAP_W + Math.floor(pr.x / T)]) continue; const col = ownerCol(pr.owner); ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 10;
+  for (const pr of S.projectiles) { if (!S.vis[Math.floor(pr.y / T) * S.W + Math.floor(pr.x / T)]) continue; const col = ownerCol(pr.owner); ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 10;
     if (pr.kind === 'shell') { const d = Math.hypot(pr.tx - pr.x, pr.ty - pr.y), tot = pr.t * pr.speed + d, f = Math.min(1, pr.t * pr.speed / tot), arc = Math.sin(f * Math.PI) * 70; ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(pr.x, pr.y, 6, 3, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#FFB347'; ctx.beginPath(); ctx.arc(pr.x, pr.y - arc, 5, 0, 7); ctx.fill(); }
     else { const dx = pr.tx - pr.x, dy = pr.ty - pr.y, d = Math.hypot(dx, dy) || 1; ctx.strokeStyle = col; ctx.lineWidth = pr.kind === 'beam' ? 3 : 2; ctx.beginPath(); ctx.moveTo(pr.x - dx / d * 14, pr.y - dy / d * 14); ctx.lineTo(pr.x, pr.y); ctx.stroke(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(pr.x, pr.y, 2.5, 0, 7); ctx.fill(); }
     ctx.restore(); }
@@ -212,21 +218,31 @@ function draw() {
     if (held.length) { const m = S.mono.owner >= 0, txt = `Datasets: você ${mine}/5 · rival ${theirs}/5${m ? ` · Monopólio de Dados (${S.mono.owner === 0 ? 'você' : 'rival'}): ${Math.ceil(E.MONO - S.mono.t)} s` : ''}`; ctx.save(); ctx.font = '700 12px IBM Plex Sans Condensed, Arial Narrow, sans-serif'; const w = ctx.measureText(txt).width + 20, x = W / 2 - w / 2; ctx.fillStyle = 'rgba(8,12,18,.85)'; ctx.fillRect(x, 50, w, 20); ctx.fillStyle = m ? (S.mono.owner === 0 ? '#3FD17A' : '#FF5A5A') : '#E8C547'; ctx.fillRect(x, 50, 3, 20); ctx.fillStyle = '#F2E9D8'; ctx.textAlign = 'center'; ctx.fillText(txt, W / 2, 64); ctx.restore(); } }
   if (mouse.down) { ctx.strokeStyle = ownerCol(0); ctx.lineWidth = 1; ctx.strokeRect(mouse.down.x, mouse.down.y, mouse.x - mouse.down.x, mouse.y - mouse.down.y); ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(mouse.down.x, mouse.down.y, mouse.x - mouse.down.x, mouse.y - mouse.down.y); }
   if (paused) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(0, 44, W, viewH()); ctx.fillStyle = '#C9A04E'; ctx.font = '700 40px Cinzel, serif'; ctx.textAlign = 'center'; ctx.fillText('PAUSADO', W / 2, H / 2 - 70); ctx.font = '500 15px EB Garamond, serif'; ctx.fillStyle = '#F2E9D8'; ctx.fillText('Espaço para continuar', W / 2, H / 2 - 40); }
-  cv.style.cursor = ghost ? 'copy' : mode ? 'crosshair' : hoverEnt && hoverEnt.owner !== 0 && hoverEnt.kind !== 'resource' && sel.length ? 'crosshair' : hoverEnt ? 'pointer' : 'default';
+  cv.dataset.cur = cursorKey(wm); // 5.1.2: cursor por contexto (CSS em arte.js)
   const ml = $('modeline'); ml.style.display = mode ? 'block' : 'none'; if (mode) ml.textContent = { attack: 'Ataque-mover: clique no alvo ou no chão', patrol: 'Patrulha: clique no destino', rally: 'Ponto de encontro: clique no mapa' }[mode];
   // minimapa
-  mctx.fillStyle = '#05080b'; mctx.fillRect(0, 0, 240, 186); const sx = 240 / (E.MAP_W * T), sy = 186 / (E.MAP_H * T), tsx = 240 / E.MAP_W, tsy = 186 / E.MAP_H;
+  mctx.fillStyle = '#05080b'; mctx.fillRect(0, 0, 240, 186); const sx = 240 / (S.W * T), sy = 186 / (S.H * T), tsx = 240 / S.W, tsy = 186 / S.H;
   // 3.5.3: modos terreno (biomas) / unidades / economia; ping de ataque 3 s; waypoints; arrasto direito
-  for (let y = 0; y < E.MAP_H; y++) for (let x = 0; x < E.MAP_W; x++) { const i = y * E.MAP_W + x; if (!S.seen[i]) continue; const c = S.grid[i] === 3 ? '#2a2e33' : miniMode ? '#2a3038' : E.BIOMES[S.biome[i]].col; mctx.fillStyle = S.vis[i] ? c : dimCol(c); mctx.fillRect(x * tsx, y * tsy, tsx + 0.5, tsy + 0.5); }
+  for (let y = 0; y < S.H; y++) for (let x = 0; x < S.W; x++) { const i = y * S.W + x; if (!S.seen[i]) continue; const c = S.grid[i] === 3 ? '#2a2e33' : miniMode ? '#2a3038' : E.BIOMES[S.biome[i]].col; mctx.fillStyle = S.vis[i] ? c : dimCol(c); mctx.fillRect(x * tsx, y * tsy, tsx + 0.5, tsy + 0.5); }
   for (const e of S.ents) { if (!seenAt(e) || (e.kind === 'unit' && !visible(e)) || (miniMode === 1 && e.kind === 'resource') || (miniMode === 2 && e.kind === 'unit')) continue; const eco = e.kind === 'building' && (E.BUILDINGS[e.type].drop || E.BUILDINGS[e.type].market); mctx.fillStyle = e.kind === 'resource' ? RCOL[e.rtype] : ownerCol(e.owner);
     if (e.kind === 'building') { if (miniMode !== 2 || eco) mctx.fillRect(e.tx * tsx, e.ty * tsy, e.w * tsx, e.h * tsy); mctx.strokeStyle = miniMode === 2 && !eco ? ownerCol(e.owner) : '#000'; mctx.lineWidth = 0.5; mctx.strokeRect(e.tx * tsx, e.ty * tsy, e.w * tsx, e.h * tsy); } else { const r = (e.kind === 'resource' ? 2.5 : E.UNITS[e.type].hero ? 4 : 2.2) * (miniMode ? 1.5 : 1); mctx.fillRect(e.x * sx - r / 2, e.y * sy - r / 2, r, r); } }
-  for (const r of S.relics) if (S.seen[Math.floor(r.y / T) * E.MAP_W + Math.floor(r.x / T)]) { mctx.fillStyle = RELIC_COL[r.id]; mctx.beginPath(); mctx.arc(r.x * sx, r.y * sy, 3, 0, 7); mctx.fill(); }
+  for (const r of S.relics) if (S.seen[Math.floor(r.y / T) * S.W + Math.floor(r.x / T)]) { mctx.fillStyle = RELIC_COL[r.id]; mctx.beginPath(); mctx.arc(r.x * sx, r.y * sy, 3, 0, 7); mctx.fill(); }
   if (S.lastHit && S.t - S.lastHit.t < 3 && S.lastHit.t > 0 && Math.floor(now * 4) % 2) { const h = E.byId(S, S.lastHit.tgt); if (h && h.owner === 0) { mctx.strokeStyle = '#FF5A5A'; mctx.lineWidth = 2; mctx.beginPath(); mctx.arc(S.lastHit.x * sx, S.lastHit.y * sy, 7, 0, 7); mctx.stroke(); } }
   mctx.strokeStyle = ownerCol(0); mctx.lineWidth = 1; camWps.forEach((w, i) => { mctx.beginPath(); mctx.moveTo(w.x * sx, w.y * sy - 4); mctx.lineTo(w.x * sx + 4, w.y * sy); mctx.lineTo(w.x * sx, w.y * sy + 4); mctx.lineTo(w.x * sx - 4, w.y * sy); mctx.closePath(); mctx.stroke(); if (i) { mctx.beginPath(); mctx.moveTo(camWps[i - 1].x * sx, camWps[i - 1].y * sy); mctx.lineTo(w.x * sx, w.y * sy); mctx.stroke(); } });
   if (miniR && miniR.cx != null) { mctx.strokeStyle = '#FF5A5A'; mctx.lineWidth = 1.5; mctx.beginPath(); mctx.moveTo(miniR.x * sx, miniR.y * sy); mctx.lineTo(miniR.cx * sx, miniR.cy * sy); mctx.stroke(); }
   mctx.strokeStyle = 'rgba(255,255,255,.85)'; mctx.lineWidth = 1; mctx.strokeRect(cam.x * sx, (cam.y + 44 / zoom) * sy, vw() * sx, viewH() / zoom * sy);
   mctx.fillStyle = 'rgba(8,12,18,.8)'; mctx.fillRect(0, 0, 78, 12); mctx.fillStyle = '#F2E9D8'; mctx.font = '700 9px IBM Plex Sans Condensed, Arial Narrow, sans-serif'; mctx.textAlign = 'left'; mctx.fillText('M · ' + MINI_MODES[miniMode], 3, 9);
-  const hv = $('hover'); if (hoverEnt && !sel.includes(hoverEnt.id)) { hv.style.display = 'block'; hv.style.left = (mouse.x + 16) + 'px'; hv.style.top = (mouse.y + 14) + 'px'; hv.innerHTML = `${entName(hoverEnt)}${hoverEnt.kind === 'resource' ? ` · ${hoverEnt.amount}` : hoverEnt.kind === 'unit' ? ` · ${GLYPH[E.UNITS[hoverEnt.type].cls]} ${CLSNAME[E.UNITS[hoverEnt.type].cls]}` : ''}${hoverEnt.owner === -1 ? ' · Misaligned' : hoverEnt.owner > 0 ? (E.isEnemy(S, 0, hoverEnt.owner) ? ' · rival' : ' · aliado') : ''}`; hv.style.borderColor = hoverEnt.kind === 'resource' ? RCOL[hoverEnt.rtype] : ownerCol(hoverEnt.owner); } else hv.style.display = 'none';
+  const hv = $('hover'); if (hoverEnt && !sel.includes(hoverEnt.id)) { hv.style.display = 'block'; hv.style.left = (mouse.x + 16) / uiScale + 'px'; hv.style.top = (mouse.y + 14) / uiScale + 'px'; /* 5.3.1: zoom escala left/top */ hv.innerHTML = `${entName(hoverEnt)}${hoverEnt.kind === 'resource' ? ` · ${hoverEnt.amount}` : hoverEnt.kind === 'unit' ? ` · ${GLYPH[E.UNITS[hoverEnt.type].cls]} ${CLSNAME[E.UNITS[hoverEnt.type].cls]}` : ''}${hoverEnt.owner === -1 ? ' · Misaligned' : hoverEnt.owner > 0 ? (E.isEnemy(S, 0, hoverEnt.owner) ? ' · rival' : ' · aliado') : ''}${hoverEnt.kind === 'unit' ? Tips.hoverLine(E.UNITS[hoverEnt.type].cls) : ''}`; hv.style.borderColor = hoverEnt.kind === 'resource' ? RCOL[hoverEnt.rtype] : ownerCol(hoverEnt.owner); const hr = hv.getBoundingClientRect(); if (hr.right > innerWidth - 4) hv.style.left = (mouse.x - 16 - hr.width) / uiScale + 'px'; if (hr.bottom > innerHeight - PANEL_H) hv.style.top = (mouse.y - 14 - hr.height) / uiScale + 'px'; /* na borda: vira para o outro lado do cursor */ } else hv.style.display = 'none';
+}
+// 5.1.2: contexto do cursor no mapa
+function cursorKey(wm) {
+  if (ghost) { const d = E.BUILDINGS[ghost]; return E.canPlace(S, ghost, Math.floor(wm.x / T) - Math.floor(d.w / 2), Math.floor(wm.y / T) - Math.floor(d.h / 2)) ? 'build' : 'invalid'; }
+  if (mode) return mode === 'attack' ? 'attack' : 'move';
+  const h = hoverEnt, us = h ? selected().filter((u) => u.kind === 'unit' && u.owner === 0) : []; if (!h) return 'default';
+  if (us.length && h.kind !== 'resource' && E.isEnemy(S, 0, h.owner)) return 'attack';
+  if (h.kind === 'resource' && us.some((u) => E.UNITS[u.type].gather)) return 'gather';
+  if (h.owner === 0 && us.some((u) => u.type === 'engineer') && (h.kind === 'building' ? !h.built || h.hp < h.maxHp : E.UNITS[h.type].cls !== 'worker' && h.hp < h.maxHp)) return 'repair';
+  return 'select';
 }
 // fila no mundo: até 3 miniaturas sobre a barra de progresso (a 1ª, em produção, com borda); +N se houver mais
 function queueThumbs(e) {

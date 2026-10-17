@@ -7,7 +7,7 @@ const Techniques = (() => {
   const costTxt = (c) => Object.keys(c).map((k) => `${c[k]} ${RNAME[k]}`).join(' · ');
   const tip = (k, shop) => { const t = E.TECHNIQUES[k]; return `<b>${t.name}</b><small>${t.desc}.<br>Alvo: ${ALVO(t)}. ${shop ? 'Custo' : 'Custo pago'}: ${costTxt(t.cost)}.${shop ? ' Vai para a mão (máx. 3); uma compra a cada 45 s.' : ' Alvo a até 10 tiles de algo seu.'}</small>`; };
   document.head.insertAdjacentHTML('beforeend', `<style>
-  #hand { position:fixed; left:max(14px, calc(50vw - 786px)); bottom:212px; z-index:3; display:none; gap:8px; align-items:flex-end; zoom:var(--ui); }
+  #hand { position:fixed; left:max(14px, calc(50vw / var(--ui) - 786px)); bottom:212px; z-index:3; display:none; gap:8px; align-items:flex-end; zoom:var(--ui); }
   #hand .th { position:absolute; left:0; top:-28px; font:700 11px var(--label); letter-spacing:2px; text-transform:uppercase; color:var(--m1); text-shadow:0 1px 0 #000, 0 0 6px #000; white-space:nowrap; pointer-events:none; }
   #hand .th span { color:#9aa6ba; letter-spacing:1px; }
   #hand .tslot, #hand .tcard { width:84px; height:126px; flex:none; border:3px solid; border-image:var(--metal) 1; box-shadow:inset 0 0 0 1px #000, 0 0 0 1px #000, 0 6px 16px rgba(0,0,0,.8); }
@@ -54,7 +54,7 @@ const Techniques = (() => {
     if (!S) return; render();
     if (cat != null && sel[0] !== cat) cat = null;
     if (armed == null) return;
-    const t = E.TECHNIQUES[hand()[armed]], ml = $('modeline'); ml.style.display = 'block'; ml.textContent = `${t.name}: escolha ${ALVO(t)} · Esc cancela`; cv.style.cursor = 'crosshair';
+    const t = E.TECHNIQUES[hand()[armed]], ml = $('modeline'); ml.style.display = 'block'; ml.textContent = `${t.name}: escolha ${ALVO(t)} · Esc cancela`; cv.dataset.cur = 'attack';
     const w = toWorld(mouse.x, mouse.y); ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-cam.x, -cam.y); ctx.strokeStyle = '#C07AFF'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
     const r = t.target === 'area' ? t.radius * T : hoverEnt ? (hoverEnt.kind === 'building' ? Math.max(hoverEnt.w, hoverEnt.h) * T / 2 + 6 : 24) : 0, at = t.target === 'area' ? w : hoverEnt;
     if (r && at) { ctx.fillStyle = 'rgba(192,122,255,.12)'; ctx.beginPath(); ctx.ellipse(at.x, at.y, r, r * (t.target === 'area' ? 0.6 : 0.5), 0, 0, 7); ctx.fill(); ctx.stroke(); }

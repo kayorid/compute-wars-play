@@ -1,6 +1,6 @@
 // Compute Wars RTS — simulação pura (sem DOM). Roda no browser (window.Engine) e no Node (require).
 (function (root) {
-  const TILE = 32, MAP_W = 72, MAP_H = 54;
+  const TILE = 32, SIZES = { small: [54, 40], medium: [72, 54], large: [108, 81] }; // onda5/mapa: lado 0,75x e 1,5x do Médio; dimensões da partida em s.W/s.H
   const ERAS = ['Era do Perceptron', 'Era do Transformer', 'Era dos Foundation Models', 'Era da AGI'];
   // ADVANCE[era] = custo/tempo para ir de `era` para `era+1`
   const ADVANCE = { 1: { cost: { data: 250, research: 150 }, time: 30 }, 2: { cost: { data: 400, gpu: 200, research: 200 }, time: 45 }, 3: { cost: { data: 400, gpu: 300, research: 250 }, time: 50 } };
@@ -145,7 +145,7 @@
 
   // 3.1.4: bioma por tile (0 Plato, 1 Fundicao, 2 Jardim Hextech) por ruido de valor suavizado em lattice de 9 tiles (regioes grandes)
   const BIOMES = [{ name: 'Platô', col: '#2d4a2a' }, { name: 'Fundição', col: '#5a3320' }, { name: 'Jardim Hextech', col: '#1f5a52' }];
-  function biomeMap(seed) {
+  function biomeMap(seed, MAP_W, MAP_H) {
     const N = 9, r = rng(seed * 7919 + 101), LW = Math.ceil(MAP_W / N) + 2, LH = Math.ceil(MAP_H / N) + 2, lat = []; for (let i = 0; i < LW * LH; i++) lat.push(r());
     const sm = (t) => t * t * (3 - 2 * t), out = new Uint8Array(MAP_W * MAP_H);
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) { const i = Math.floor(x / N), j = Math.floor(y / N), fx = sm(x / N - i), fy = sm(y / N - j), L = (jj, ii) => lat[jj * LW + ii]; const v = (L(j, i) * (1 - fx) + L(j, i + 1) * fx) * (1 - fy) + (L(j + 1, i) * (1 - fx) + L(j + 1, i + 1) * fx) * fy; out[y * MAP_W + x] = v < 0.38 ? 1 : v > 0.63 ? 2 : 0; }
@@ -154,25 +154,26 @@
   function createGame(opts) {
     opts = opts || {};
     const rand = rng(opts.seed || 7);
+    const [MAP_W, MAP_H] = SIZES[opts.size] || SIZES.medium, area = MAP_W * MAP_H / 3888, m = Math.round(12 * Math.min(MAP_W / 72, MAP_H / 54)); // escalas: no Médio dão os números de antes (26 escombros, 20 grupos, margem 12)
     const faction = opts.faction || 'citadel';
     // 4.2.2: players [{faction, team, ai, name, difficulty?}] (2 a 4); sem lista, o 1v1 de sempre
     const pl = (opts.players || [{ faction, team: 0, ai: false }, { faction: opts.rival || (faction === 'citadel' ? 'foundry' : 'citadel'), team: 1, ai: true }]).slice(0, 4).map((o, i) => Object.assign({ faction, team: i, ai: i > 0 }, o));
     const s = {
-      t: 0, nextId: 1, ents: [], winner: null, aiTimer: 0, fogTimer: 0, log: [], deaths: [], hits: [], projectiles: [], difficulty: opts.difficulty || 'normal', lastAlert: {}, seed: opts.seed || 7,
+      W: MAP_W, H: MAP_H, t: 0, nextId: 1, ents: [], winner: null, aiTimer: 0, fogTimer: 0, log: [], deaths: [], hits: [], projectiles: [], difficulty: opts.difficulty || 'normal', lastAlert: {}, seed: opts.seed || 7,
       fields: [], props: [], relics: [], mono: { owner: -1, t: 0 }, grid: new Uint8Array(MAP_W * MAP_H), seen: new Uint8Array(MAP_W * MAP_H), vis: new Uint8Array(MAP_W * MAP_H),
-      weather: 'clear', weatherSlot: 0, biome: biomeMap(opts.seed || 7), camFav: {}, victory: (opts.victory || ['conquest', 'agi', 'monopoly']).slice(),
+      weather: 'clear', weatherSlot: 0, biome: biomeMap(opts.seed || 7, MAP_W, MAP_H), camFav: {}, victory: (opts.victory || ['conquest', 'agi', 'monopoly']).slice(),
       players: pl.map((o, i) => newPlayer(i, o.name || (i === 0 ? 'Você' : o.team === pl[0].team ? 'Aliado' : pl.length > 2 ? `Rival ${pl.slice(0, i + 1).filter((q) => q.team !== pl[0].team).length}` : 'Rival'), o.faction, o.team, o.ai)),
       rngState: (opts.seed || 7) >>> 0, opts: JSON.parse(JSON.stringify(opts)), cmds: [], record: false, spectate: false, stats: { perMin: [] },
     };
     pl.forEach((o, i) => { if (o.difficulty) s.players[i].difficulty = o.difficulty; }); // contrato 3 (mec-ai) lê
     const bi = typeof opts.biome === 'number' ? opts.biome : BIOMES.findIndex((b) => b.name === opts.biome); if (BIOMES[bi]) s.biome.fill(bi);
     // escombros intransponíveis (grid=3) espalhados pelo meio do mapa
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < Math.round(26 * area); i++) {
       const cx = 12 + Math.floor(rand() * (MAP_W - 24)), cy = 10 + Math.floor(rand() * (MAP_H - 20)), n = 2 + Math.floor(rand() * 5);
       for (let k = 0; k < n; k++) { const tx = cx + Math.floor(rand() * 4) - 2, ty = cy + Math.floor(rand() * 3) - 1; if (tx > 0 && ty > 0 && tx < MAP_W - 1 && ty < MAP_H - 1) s.grid[ty * MAP_W + tx] = 3; }
     }
-    // HQ a 12 tiles das bordas, cantos BL, TR, TL, BR; o time do jogador 0 prefere o lado esquerdo, os outros o direito (1v1 = BL x TR, como sempre)
-    const CORNERS = [[12, MAP_H - 15], [MAP_W - 15, 12], [12, 12], [MAP_W - 15, MAP_H - 15]], PREF = [[0, 2, 3, 1], [1, 3, 2, 0]], used = [];
+    // HQ a m tiles das bordas (12 no Médio), cantos BL, TR, TL, BR; o time do jogador 0 prefere o lado esquerdo, os outros o direito (1v1 = BL x TR, como sempre)
+    const CORNERS = [[m, MAP_H - m - 3], [MAP_W - m - 3, m], [m, m], [MAP_W - m - 3, MAP_H - m - 3]], PREF = [[0, 2, 3, 1], [1, 3, 2, 0]], used = [];
     const bases = s.players.map((p) => { const k = PREF[p.team === s.players[0].team ? 0 : 1].find((c) => !used.includes(c)); used.push(k); return CORNERS[k]; });
     bases.forEach(([tx, ty], pid) => {
       for (let y = ty - 8; y < ty + 11; y++) for (let x = tx - 6; x < tx + 11; x++) if (x >= 0 && y >= 0 && x < MAP_W && y < MAP_H) s.grid[y * MAP_W + x] = 0; // base limpa
@@ -182,7 +183,7 @@
       cluster(s, 'data', tx + 6, ty - 2, n(), rand, pid); cluster(s, 'data', tx - 2, ty + 6, n(), rand, pid);
       cluster(s, 'gpu', tx + 7, ty + 6, n(), rand, pid); cluster(s, 'research', tx - 3, ty - 5, n(), rand, pid);
     });
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < Math.round(20 * area); i++) {
       const types = ['gpu', 'data', 'research'];
       cluster(s, types[i % 3], 10 + Math.floor(rand() * (MAP_W - 20)), 8 + Math.floor(rand() * (MAP_H - 16)), 5 + Math.floor(rand() * 3), rand, -1);
     }
@@ -196,7 +197,7 @@
   function cluster(s, rtype, cx, cy, n, rand, owner) {
     let nodes = [], sig = '';
     for (let att = 0; att < 8; att++) {
-      nodes = []; const free = (x, y) => x >= 1 && y >= 1 && x < MAP_W - 1 && y < MAP_H - 1 && !s.grid[y * MAP_W + x] && !nodes.some((q) => q[0] === x && q[1] === y);
+      nodes = []; const free = (x, y) => x >= 1 && y >= 1 && x < s.W - 1 && y < s.H - 1 && !s.grid[y * s.W + x] && !nodes.some((q) => q[0] === x && q[1] === y);
       for (let k = 0; k < 25 && !nodes.length; k++) { const x = cx + (k % 5) - 2, y = cy + Math.floor(k / 5) - 2; if (free(x, y)) nodes.push([x, y]); } // semente: centro ou o vizinho livre mais proximo
       for (let tries = 0; nodes.length && nodes.length < n && tries < 80; tries++) {
         const q = nodes[Math.floor(rand() * nodes.length)], d = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(rand() * 4)], x = q[0] + d[0], y = q[1] + d[1];
@@ -210,7 +211,7 @@
     const f = { id: s.fields.length, rtype, owner: owner === undefined ? -1 : owner, sig, x: (nodes.reduce((a, q) => a + q[0], 0) / nodes.length + 0.5) * TILE, y: (nodes.reduce((a, q) => a + q[1], 0) / nodes.length + 0.5) * TILE };
     s.fields.push(f);
     for (const [tx, ty] of nodes) {
-      s.grid[ty * MAP_W + tx] = 2;
+      s.grid[ty * s.W + tx] = 2;
       s.ents.push({ id: s.nextId++, kind: 'resource', rtype, tx, ty, x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2, amount: RES[rtype].amount, field: f.id, variant: 1 + Math.floor(rand() * 3), flip: rand() < 0.5, sc: 0.9 + rand() * 0.2 });
     }
   }
@@ -225,11 +226,11 @@
   function genProps(s, rand, bases) {
     const rd = roads(s), hqs = s.ents.filter((e) => e.type === 'hq');
     const segD = (px, py, r) => { const dx = r.x2 - r.x1, dy = r.y2 - r.y1, u = Math.max(0, Math.min(1, ((px - r.x1) * dx + (py - r.y1) * dy) / (dx * dx + dy * dy))); return Math.hypot(px - r.x1 - u * dx, py - r.y1 - u * dy); };
-    for (let y = 2; y < MAP_H - 2; y++) for (let x = 2; x < MAP_W - 2; x++) {
+    for (let y = 2; y < s.H - 2; y++) for (let x = 2; x < s.W - 2; x++) {
       const inBase = bases.some(([bx, by]) => x >= bx - 6 && x < bx + 11 && y >= by - 8 && y < by + 11);
       if (rand() >= (inBase ? 1 / 8 : 1 / 20)) continue;
       let ok = true;
-      for (let dy = -1; dy <= 1 && ok; dy++) for (let dx = -1; dx <= 1; dx++) if (s.grid[(y + dy) * MAP_W + x + dx]) { ok = false; break; }
+      for (let dy = -1; dy <= 1 && ok; dy++) for (let dx = -1; dx <= 1; dx++) if (s.grid[(y + dy) * s.W + x + dx]) { ok = false; break; }
       const px = (x + 0.5) * TILE, py = (y + 0.5) * TILE;
       if (!ok || hqs.some((h) => Math.hypot(h.x - px, h.y - py) < 5 * TILE) || rd.some((r) => segD(px, py, r) < 2 * TILE) || s.props.some((p) => Math.hypot(p.x - px, p.y - py) < 2.5 * TILE)) continue;
       const list = inBase ? URBAN : PROPS;
@@ -245,14 +246,14 @@
   }
   function canPlace(s, bt, tx, ty) {
     const d = BUILDINGS[bt];
-    if (tx < 0 || ty < 0 || tx + d.w > MAP_W || ty + d.h > MAP_H || (bt === 'agi' && !on(s, 'agi'))) return false; // 4.2.4: AGI desligada
-    for (let y = ty; y < ty + d.h; y++) for (let x = tx; x < tx + d.w; x++) if (s.grid[y * MAP_W + x]) return false;
+    if (tx < 0 || ty < 0 || tx + d.w > s.W || ty + d.h > s.H || (bt === 'agi' && !on(s, 'agi'))) return false; // 4.2.4: AGI desligada
+    for (let y = ty; y < ty + d.h; y++) for (let x = tx; x < tx + d.w; x++) if (s.grid[y * s.W + x]) return false;
     if ((s.relics || []).some((r) => r.lab == null && r.by == null && r.x >= tx * TILE && r.x < (tx + d.w) * TILE && r.y >= ty * TILE && r.y < (ty + d.h) * TILE)) return false; // relíquia solta embaixo ficaria inalcançável
     return true;
   }
   function place(s, bt, tx, ty, owner) {
     const d = BUILDINGS[bt], maxHp = Math.round(d.hp * mods(s.players[owner]).bhp);
-    for (let y = ty; y < ty + d.h; y++) for (let x = tx; x < tx + d.w; x++) s.grid[y * MAP_W + x] = d.wall ? 8 + owner : d.gate ? 4 + owner : 1; // 4..7 portão do dono 0..3, 8..11 muro
+    for (let y = ty; y < ty + d.h; y++) for (let x = tx; x < tx + d.w; x++) s.grid[y * s.W + x] = d.wall ? 8 + owner : d.gate ? 4 + owner : 1; flowReset(s); // 4..7 portão do dono 0..3, 8..11 muro
     const b = { id: s.nextId++, kind: 'building', type: bt, owner, tx, ty, w: d.w, h: d.h, x: (tx + d.w / 2) * TILE, y: (ty + d.h / 2) * TILE, hp: 1, maxHp, progress: 0, built: false, queue: [], cd: 0, alignT: 0, countdown: d.countdown || 0, rally: null, garrison: [], seenBy: 0 }; // seenBy: bitmask de jogadores que já o viram (4.2.3)
     s.ents.push(b);
     if (s.props) s.props = s.props.filter((p) => { const px = Math.floor(p.x / TILE), py = Math.floor(p.y / TILE); return px < tx - 1 || px > tx + d.w || py < ty - 1 || py > ty + d.h; }); // praça: 1 tile além
@@ -262,7 +263,7 @@
   // anel de 1 tile em volta do prédio já tem outro prédio? (emparedaria o HQ/depósito: engineers não alcançam e a economia trava)
   function walled(s, bt, tx, ty) {
     const d = BUILDINGS[bt];
-    for (let y = ty - 1; y <= ty + d.h; y++) for (let x = tx - 1; x <= tx + d.w; x++) if (s.grid[y * MAP_W + x] === 1 && (x < tx || x >= tx + d.w || y < ty || y >= ty + d.h)) return true;
+    for (let y = ty - 1; y <= ty + d.h; y++) for (let x = tx - 1; x <= tx + d.w; x++) if (s.grid[y * s.W + x] === 1 && (x < tx || x >= tx + d.w || y < ty || y >= ty + d.h)) return true;
     return false;
   }
   function findSpot(s, bt, cx, cy) {
@@ -285,8 +286,8 @@
   const tradeRate = (p, from, to) => Math.max(0.2, Math.min(1.5, 0.7 * p.prices[to] / p.prices[from]));
 
   // ---- pathfinding A* em tiles (prédios e escombros bloqueiam; recursos não) ----
-  const blocked = (s, tx, ty, pid) => { if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return true; const v = s.grid[ty * MAP_W + tx]; return v === 1 || v === 3 || v >= 8 || (v >= 4 && v - 4 !== pid); }; // portao so abre para o dono (pid)
-  const foreignWall = (s, tx, ty, pid) => { const v = s.grid[ty * MAP_W + tx]; return v >= 4 && (v < 8 ? v - 4 : v - 8) !== pid; };
+  const blocked = (s, tx, ty, pid) => { if (tx < 0 || ty < 0 || tx >= s.W || ty >= s.H) return true; const v = s.grid[ty * s.W + tx]; return v === 1 || v === 3 || v >= 8 || (v >= 4 && v - 4 !== pid); }; // portao so abre para o dono (pid)
+  const foreignWall = (s, tx, ty, pid) => { const v = s.grid[ty * s.W + tx]; return v >= 4 && (v < 8 ? v - 4 : v - 8) !== pid; };
   const wallAt = (s, tx, ty) => s.ents.find((e) => e.kind === 'building' && (BUILDINGS[e.type].wall || BUILDINGS[e.type].gate) && tx >= e.tx && tx < e.tx + e.w && ty >= e.ty && ty < e.ty + e.h);
   function freeNear(s, tx, ty, px, py) {
     if (!blocked(s, tx, ty)) return [tx, ty];
@@ -299,6 +300,7 @@
   }
   // breach: muro/portao alheio vira transponivel (custo +12): a unidade ira derruba-lo
   function astar(s, sx, sy, gx, gy, pid, breach) {
+    const MAP_W = s.W, MAP_H = s.H;
     const bl = (x, y) => blocked(s, x, y, pid) && !(breach && x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && foreignWall(s, x, y, pid));
     const N = MAP_W * MAP_H, g = new Float32Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
     const h = (i) => { const dx = Math.abs(i % MAP_W - gx), dy = Math.abs((i / MAP_W | 0) - gy); return Math.max(dx, dy) + 0.414 * Math.min(dx, dy); };
@@ -306,7 +308,7 @@
     const popH = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top[1]; };
     const start = sy * MAP_W + sx, goal = gy * MAP_W + gx; g[start] = 0; push(start, h(start));
     let expanded = 0;
-    while (heap.length && expanded++ < 8000) {
+    while (heap.length && expanded++ < Math.max(8000, 2 * N)) { // Médio: 8000 como antes; Grande: rota de canto a canto
       const i = popH(); if (i === goal) break; if (closed[i]) continue; closed[i] = 1;
       const x = i % MAP_W, y = i / MAP_W | 0;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -321,6 +323,36 @@
     const path = []; for (let i = goal; i !== start && i >= 0; i = from[i]) path.push([(i % MAP_W) * TILE + TILE / 2, (i / MAP_W | 0) * TILE + TILE / 2]);
     return path.reverse();
   }
+  // 5.2.3 flow field: custo até (gx,gy) de cada tile (Dijkstra com os mesmos passos e a mesma regra de quina do A*, sem brecha).
+  // Cache por partida; place e prédio destruído limpam (flowReset), então o campo é sempre função do grid atual: salvar/carregar não muda nada.
+  const FLOW = new WeakMap(), FLOW_MIN = 8, flowReset = (s) => FLOW.delete(s);
+  function flowField(s, pid, gx, gy) {
+    const c = FLOW.get(s) || (FLOW.set(s, new Map()), FLOW.get(s)), key = pid + ':' + gx + ':' + gy; if (c.has(key)) return c.get(key);
+    if (c.size >= 32) c.clear(); /* só memória: o campo recalculado é idêntico */
+    const W = s.W, N = W * s.H, f = new Float64Array(N).fill(Infinity), heap = [], bl = (x, y) => blocked(s, x, y, pid);
+    const push = (i, v) => { heap.push([v, i]); let k = heap.length - 1; while (k > 0) { const p = (k - 1) >> 1; if (heap[p][0] <= heap[k][0]) break; [heap[p], heap[k]] = [heap[k], heap[p]]; k = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
+    if (!bl(gx, gy)) { f[gy * W + gx] = 0; push(gy * W + gx, 0); }
+    while (heap.length) {
+      const [v, i] = pop(); if (v > f[i]) continue; const x = i % W, y = i / W | 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if ((!dx && !dy) || bl(x + dx, y + dy) || (dx && dy && (bl(x + dx, y) || bl(x, y + dy)))) continue;
+        const j = (y + dy) * W + x + dx, n = v + (dx && dy ? 1.414 : 1); if (n < f[j]) { f[j] = n; push(j, n); }
+      }
+    }
+    c.set(key, f); return f;
+  }
+  // Rota de grupo: desce o campo do destino comum até 3 tiles do próprio lugar na formação e fecha com A* curto; null = sem campo (A* normal)
+  function flowPath(s, pid, sx, sy, gt, goal) {
+    const W = s.W, f = flowField(s, pid, goal[0], goal[1]), bl = (x, y) => blocked(s, x, y, pid), path = [];
+    let x = sx, y = sy; if (!(f[y * W + x] < Infinity)) return null;
+    while (Math.max(Math.abs(x - gt[0]), Math.abs(y - gt[1])) > 3 && f[y * W + x] > 0) {
+      let bx = -1, by = -1, bv = f[y * W + x];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if ((!dx && !dy) || bl(x + dx, y + dy) || (dx && dy && (bl(x + dx, y) || bl(x, y + dy)))) continue; const v = f[(y + dy) * W + x + dx]; if (v < bv) { bv = v; bx = x + dx; by = y + dy; } }
+      if (bx < 0) return null; x = bx; y = by; path.push([x * TILE + TILE / 2, y * TILE + TILE / 2]);
+    }
+    const tail = astar(s, x, y, gt[0], gt[1], pid); if (!tail) return null; const p = path.concat(tail); p.flow = true; return p;
+  }
   // Move a unidade rumo a (x,y) seguindo rota; devolve true quando chega.
   function moveTo(s, u, x, y, dt) {
     const speed = stat(s, u, 'speed');
@@ -328,7 +360,7 @@
     const exact = !blocked(s, Math.floor(x / TILE), Math.floor(y / TILE));
     const fx = exact ? x : gt[0] * TILE + TILE / 2, fy = exact ? y : gt[1] * TILE + TILE / 2;
     if (!u.path || Math.hypot(u.path.goal[0] - fx, u.path.goal[1] - fy) > TILE) {
-      const a = [Math.floor(u.x / TILE), Math.floor(u.y / TILE), gt[0], gt[1], u.owner], p = astar(s, ...a) || astar(s, ...a, true) || [];
+      const a = [Math.floor(u.x / TILE), Math.floor(u.y / TILE), gt[0], gt[1], u.owner], p = (u.task.flow && flowPath(s, u.owner, a[0], a[1], gt, u.task.flow)) || astar(s, ...a) || astar(s, ...a, true) || [];
       if (p.length) p[p.length - 1] = [fx, fy]; else p.push([fx, fy]);
       u.path = p; u.path.goal = [fx, fy];
     }
@@ -340,7 +372,7 @@
     }
     const d = Math.hypot(wp[0] - u.x, wp[1] - u.y), st = Math.min(d, speed * dt);
     if (d > 0.01) { u.x += (wp[0] - u.x) / d * st; u.y += (wp[1] - u.y) / d * st; u.facing = wp[0] < u.x ? -1 : 1; }
-    if (d - st < (u.path.length > 1 ? 6 : 1)) { u.path.shift(); if (!u.path.length) { u.path = null; return true; } }
+    if (d - st < (u.path.length > 1 ? (u.path.flow ? 20 : 6) : 1)) /* 5.2.3: no grupo, vários disputam o mesmo centro de tile e a separação não deixa ninguém chegar a 6 px */ { u.path.shift(); if (!u.path.length) { u.path = null; return true; } }
     return false;
   }
 
@@ -373,8 +405,7 @@
     const mine = (ids) => ids.map((id) => byId(s, id)).filter((e) => e && e.owner === pid);
     const units = (ids, f) => mine(ids).filter((e) => e.kind === 'unit' && (!f || f(e)));
     switch (c.type) {
-      case 'move': formation(units(c.ids), c.x, c.y).forEach(([u, x, y]) => { u.task = { kind: 'move', x, y }; }); break;
-      case 'attackmove': formation(units(c.ids), c.x, c.y).forEach(([u, x, y]) => { u.task = { kind: 'attackmove', x, y }; }); break;
+      case 'move': case 'attackmove': { const f = formation(units(c.ids), c.x, c.y), g = f.length >= FLOW_MIN && freeNear(s, Math.floor(c.x / TILE), Math.floor(c.y / TILE), c.x, c.y); f.forEach(([u, x, y]) => { u.task = g ? { kind: c.type, x, y, flow: g } : { kind: c.type, x, y }; }); break; } // 5.2.3: 8+ unidades seguem o campo do destino comum
       case 'patrol': units(c.ids).forEach((u) => { u.task = { kind: 'patrol', x: c.x, y: c.y, ox: u.x, oy: u.y, leg: 0 }; }); break;
       case 'stance': { if (!['aggressive', 'defensive', 'hold'].includes(c.v)) return false; units(c.ids, (e) => !UNITS[e.type].gather).forEach((u) => { u.stance = c.v; u.home = { x: u.x, y: u.y }; }); break; }
       case 'garrison': {
@@ -493,8 +524,8 @@
     for (const p of s.players) for (const k in p.prices) p.prices[k] += (1 - p.prices[k]) * 0.01 * dt; // preços voltam ao equilíbrio
     const dead = s.ents.filter((e) => (e.kind !== 'resource' && e.hp <= 0) || (e.kind === 'resource' && e.amount <= 0));
     for (const e of dead) {
-      if (e.kind === 'building') { for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) s.grid[y * MAP_W + x] = 0; unload(s, e); if (e.owner === 0) log(s, `${BUILDINGS[e.type].name} destruído!`, e.x, e.y, 'alert'); }
-      if (e.kind === 'resource') s.grid[e.ty * MAP_W + e.tx] = 0;
+      if (e.kind === 'building') { for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) s.grid[y * s.W + x] = 0; flowReset(s); unload(s, e); if (e.owner === 0) log(s, `${BUILDINGS[e.type].name} destruído!`, e.x, e.y, 'alert'); }
+      if (e.kind === 'resource') s.grid[e.ty * s.W + e.tx] = 0;
       if (e.kind === 'unit') { s.deaths.push({ t: s.t, x: e.x, y: e.y, type: e.type, owner: e.owner }); if (s.deaths.length > 30) s.deaths.shift(); }
       if (e.kind === 'unit' && e.owner >= 0) { s.players[e.owner].stats.losses++; if (UNITS[e.type].hero) { s.players[e.owner].heroXp = e.xp; s.players[e.owner].heroDeadAt = s.t; if (e.owner === 0) log(s, 'Seu herói caiu! Reconvoque no Lab HQ em 30 s (nível mantido).', e.x, e.y, 'alert'); } }
     }
@@ -504,7 +535,7 @@
     if (on(s, 'points') && s.t >= POINTS_T && s.winner === null) { const ts = {}; for (const p of s.players) ts[p.team] = (ts[p.team] || 0) + score(s, p.id); s.winner = rep(s, s.players.reduce((b, p) => ts[p.team] > ts[b.team] ? p : b).id); } // 4.2.4: empate = primeiro da lista
     s.fogTimer += dt; if (s.fogTimer >= 0.3) { for (const p of s.players) { const tax = Math.floor((pop(s, p.id) - 60) / 10); if (tax > 0) p.res.data = Math.max(0, p.res.data - tax * s.fogTimer); } s.fogTimer = 0; vision(s); } // 3.2.6 impostos: 1 Dados/s por 10 de pop acima de 60
     s.aiTimer += dt; const ais = s.players.filter((p) => p.ai), every = Math.min(...ais.map((p) => DIFF[aiLevel(s, p.id)].every)); // 4.2.1/4.2.2: todo jogador IA, no ritmo do nível mais rápido; sem renda extra
-    if (ais.length && s.aiTimer >= every) { s.aiTimer = 0; for (const p of ais) { inAi = true; ai(s, p.id); inAi = false; } }
+    if (ais.length && s.aiTimer >= every) { s.aiTimer = 0; for (const p of ais) { inAi = true; Engine.ai(s, p.id); inAi = false; } }
     for (const p of s.players) { const pm = s.stats.perMin[p.id] = s.stats.perMin[p.id] || [], last = pm[pm.length - 1]; if (!last || Math.floor(s.t / 60) > Math.floor(last.t / 60)) pm.push({ t: s.t, res: Object.fromEntries(Object.entries(p.stats.gathered).map(([k, v]) => [k, Math.round(v)])), army: s.ents.filter((e) => e.kind === 'unit' && e.owner === p.id && !UNITS[e.type].gather).length }); } // 4.2.5
   }
   // 4.2.5: reproduz s.cmds (a partir de s.replayAt) em passo fixo até untilT; '_load' refaz o efeito de carregar o save. Pode devolver outro objeto.
@@ -521,9 +552,10 @@
   const replay = (seed, opts, cmds, untilT) => advance(Object.assign(createGame(Object.assign({}, opts, { seed })), { cmds, replayAt: 0 }), untilT);
   // 4.2.2/4.2.3: visão de cada jogador num array temporário; s.vis/s.seen = time do jogador 0 (visão compartilhada com o aliado);
   // cada prédio lembra quem já o viu (seenBy) e cada jogador marca os pontos de exploração vistos (explored)
-  const SCOUT_PTS = []; for (let y = 6; y < MAP_H; y += 12) for (let x = 6; x < MAP_W; x += 12) SCOUT_PTS.push([x, y]); // 24 pontos
+  const SCOUT_CACHE = {}; // pontos de exploração por tamanho: passo 12 no Médio (24 pontos, como antes), escalado no lado (<= 30 pontos: p.explored é máscara de 31 bits)
+  const scoutPts = (s) => SCOUT_CACHE[s.W + 'x' + s.H] || (SCOUT_CACHE[s.W + 'x' + s.H] = (() => { const st = Math.round(12 * s.W / 72), out = []; for (let y = 6; y < s.H; y += st) for (let x = 6; x < s.W; x += st) out.push([x, y]); return out; })());
   function vision(s) {
-    const N = MAP_W * MAP_H, tv = s.players.map(() => new Uint8Array(N)), vb = s.players.map((p) => mods(p).vision);
+    const MAP_W = s.W, MAP_H = s.H, N = MAP_W * MAP_H, tv = s.players.map(() => new Uint8Array(N)), vb = s.players.map((p) => mods(p).vision);
     s.vis.fill(0);
     for (const e of s.ents) {
       if (e.owner < 0 || e.kind === 'resource') continue;
@@ -532,7 +564,7 @@
     }
     for (const p of s.players) {
       const v = tv[p.id]; if (!isEnemy(s, 0, p.id)) for (let i = 0; i < N; i++) if (v[i]) { s.vis[i] = 1; s.seen[i] = 1; }
-      SCOUT_PTS.forEach(([x, y], k) => { if (v[y * MAP_W + x]) p.explored |= 1 << k; });
+      scoutPts(s).forEach(([x, y], k) => { if (v[y * MAP_W + x]) p.explored |= 1 << k; });
     }
     for (const b of s.ents) if (b.kind === 'building' && b.seenBy !== undefined) { const i = Math.floor(b.y / TILE) * MAP_W + Math.floor(b.x / TILE); for (const p of s.players) if (tv[p.id][i]) b.seenBy |= 1 << p.id; } // sem seenBy (save antigo) = visto por todos
   }
@@ -546,7 +578,7 @@
   // Cor por dono: você pela facção, aliado azul, rivais vermelho e laranja (o 3º rival, só em FFA de 4, usa o azul livre), desalinhado roxo
   const FACTION_COL = { citadel: '#7FE6F0', foundry: '#A8FF38', commons: '#5FE0B0' }, RIVAL_COL = ['#FF5A5A', '#FFA040', '#4E8CFF'];
   const ownerColor = (s, o) => o === -1 ? '#C07AFF' : o === 0 ? (s.players[0].color || FACTION_COL[s.players[0].faction]) : !isEnemy(s, 0, o) ? '#4E8CFF' : RIVAL_COL[s.players.filter((p) => isEnemy(s, 0, p.id)).findIndex((p) => p.id === o)] || RIVAL_COL[0];
-  const visibleTo0 = (s, e) => s.vis[Math.floor(e.y / TILE) * MAP_W + Math.floor(e.x / TILE)] === 1;
+  const visibleTo0 = (s, e) => s.vis[Math.floor(e.y / TILE) * s.W + Math.floor(e.x / TILE)] === 1;
   function nearest(s, from, pred, maxTiles) {
     let best = null, bd = (maxTiles || 1e9) * TILE;
     for (const e of s.ents) { if (e === from || !pred(e)) continue; const d = edgeDist(from, e); if (d < bd) { bd = d; best = e; } }
@@ -693,10 +725,10 @@
   const MONO = 300; // s com as 5 reliquias para vencer
   const RELICS = ['ImageNet', 'Common Crawl', 'The Pile', 'LAION', 'Wikipedia'];
   function genRelics(s, rand) { // depois de genProps: nao altera o mapa anterior
-    const spots = [[36, 27], [20, 14], [52, 40], [30, 45], [44, 9]];
+    const spots = [[36, 27], [20, 14], [52, 40], [30, 45], [44, 9]].map(([x, y]) => [Math.round(x * s.W / 72), Math.round(y * s.H / 54)]); // pontos do Médio escalados
     s.relics = RELICS.map((name, id) => {
       const cx = spots[id][0] + Math.floor(rand() * 5) - 2, cy = spots[id][1] + Math.floor(rand() * 5) - 2; let pos = [cx, cy];
-      search: for (let r = 0; r < 9; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if ((Math.abs(dx) === r || Math.abs(dy) === r) && !blocked(s, cx + dx, cy + dy) && !s.grid[(cy + dy) * MAP_W + cx + dx]) { pos = [cx + dx, cy + dy]; break search; }
+      search: for (let r = 0; r < 9; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if ((Math.abs(dx) === r || Math.abs(dy) === r) && !blocked(s, cx + dx, cy + dy) && !s.grid[(cy + dy) * s.W + cx + dx]) { pos = [cx + dx, cy + dy]; break search; }
       return { id, name, x: (pos[0] + 0.5) * TILE, y: (pos[1] + 0.5) * TILE, by: null, lab: null };
     });
   }
@@ -734,14 +766,29 @@
     if (d.countdown && on(s, 'agi')) { b.countdown -= dt; if (b.countdown <= 0) s.winner = rep(s, b.owner); }
   }
   const SEP = { worker: 8, infantry: 10, heavy: 13, ranged: 10, siege: 15, hero: 13 };
+  // 5.2.2: mesmos pares (i, j > i), na mesma ordem e com a mesma conta do laço O(n²) de antes, mas só os candidatos da grade de 4×4 tiles.
+  // Par fora do alcance é no-op, então pular um par que não encosta não muda nada. A grade segue b (único que se move fora da sua linha);
+  // se a andar mais que SEP_SLACK na própria linha, o resto da linha volta ao laço completo: o resultado é idêntico bit a bit.
+  const SEP_MAX = 30, SEP_SLACK = 64, CELL = 4 * TILE;
   function separate(s) {
-    const us = s.ents.filter((e) => e.kind === 'unit');
-    for (let i = 0; i < us.length; i++) for (let j = i + 1; j < us.length; j++) {
-      const a = us[i], b = us[j]; const dx = b.x - a.x, dy = b.y - a.y, dd = dx * dx + dy * dy;
-      const R = SEP[UNITS[a.type].cls] + SEP[UNITS[b.type].cls], enemy = isEnemy(s, a.owner, b.owner);
-      if (dd < R * R && dd > 0.01) { const d = Math.sqrt(dd), push = (R - d) / d * (enemy ? 0.9 : 0.5); a.x -= dx * push; a.y -= dy * push; b.x += dx * push; b.y += dy * push; }
+    const us = s.ents.filter((e) => e.kind === 'unit'), n = us.length, cw = Math.ceil(s.W / 4), chh = Math.ceil(s.H / 4);
+    const cell = (x, y) => Math.max(0, Math.min(chh - 1, Math.floor(y / CELL))) * cw + Math.max(0, Math.min(cw - 1, Math.floor(x / CELL)));
+    const grid = Array.from({ length: cw * chh }, () => []), at = new Int32Array(n);
+    for (let i = 0; i < n; i++) grid[at[i] = cell(us[i].x, us[i].y)].push(i);
+    const pair = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y, dd = dx * dx + dy * dy, R = SEP[UNITS[a.type].cls] + SEP[UNITS[b.type].cls];
+      if (dd < R * R && dd > 0.01) { const d = Math.sqrt(dd), push = (R - d) / d * (isEnemy(s, a.owner, b.owner) ? 0.9 : 0.5); a.x -= dx * push; a.y -= dy * push; b.x += dx * push; b.y += dy * push; return true; } };
+    for (let i = 0; i < n; i++) {
+      const a = us[i], ax = a.x, ay = a.y, q = SEP_MAX + SEP_SLACK, c0 = cell(ax - q, ay - q), c1 = cell(ax + q, ay + q), cand = [];
+      for (let cy = (c0 / cw) | 0; cy <= ((c1 / cw) | 0); cy++) for (let cx = c0 % cw; cx <= c1 % cw; cx++) for (const j of grid[cy * cw + cx]) if (j > i && Math.abs(us[j].x - ax) <= q && Math.abs(us[j].y - ay) <= q) cand.push(j);
+      cand.sort((p, r) => p - r);
+      let k = 0;
+      for (; k < cand.length; k++) {
+        if (Math.abs(a.x - ax) > SEP_SLACK || Math.abs(a.y - ay) > SEP_SLACK) break;
+        const j = cand[k], b = us[j]; if (pair(a, b)) { const c = cell(b.x, b.y); if (c !== at[j]) { const g = grid[at[j]]; g.splice(g.indexOf(j), 1); grid[at[j] = c].push(j); } }
+      }
+      if (k < cand.length) for (let j = k ? cand[k - 1] + 1 : i + 1; j < n; j++) { const b = us[j]; if (pair(a, b)) { const c = cell(b.x, b.y); if (c !== at[j]) { const g = grid[at[j]]; g.splice(g.indexOf(j), 1); grid[at[j] = c].push(j); } } } // a saiu da folga: resto da linha completo
     }
-    for (const u of us) { u.x = Math.max(8, Math.min(MAP_W * TILE - 8, u.x)); u.y = Math.max(8, Math.min(MAP_H * TILE - 8, u.y)); }
+    for (const u of us) { u.x = Math.max(8, Math.min(s.W * TILE - 8, u.x)); u.y = Math.max(8, Math.min(s.H * TILE - 8, u.y)); }
   }
 
   // ---- 4.1.2 Técnicas (cartas do MLG): uso único, compradas no Exchange; efeitos com tempo absoluto (s.t) para serializar ----
@@ -782,143 +829,12 @@
     scaling: { name: 'Scaling Laws', desc: 'O próximo Modelo que você puser na fila sai na metade do tempo', cost: { gpu: 80, research: 80 }, target: 'none',
       apply(s, pid) { const p = s.players[pid]; if (p.scaleNext) return false; p.scaleNext = true; } },
   };
-  // IA: compra Jailbreak/RLHF com folga (2x o custo), priorizando a que já tem alvo; usa em Modelo de alinhamento 1. Chamada pela ai() da frente mec-ai.
-  function aiTechniques(s, pid) {
-    const p = s.players[pid]; p.hand = p.hand || [];
-    const jb = () => s.ents.find((u) => u.kind === 'unit' && hostile(s, pid, u.owner) && u.align === 1 && inReach(s, pid, u.x, u.y)), rl = () => s.ents.find((u) => u.kind === 'unit' && u.owner === pid && u.align === 1);
-    const missing = ['jailbreak', 'rlhf'].filter((k) => !p.hand.includes(k)), want = missing.find((k) => (k === 'jailbreak' ? jb : rl)()) || missing[0];
-    if (want && Object.keys(TECHNIQUES[want].cost).every((k) => p.res[k] >= 2 * TECHNIQUES[want].cost[k])) cmd(s, pid, { type: 'buyTechnique', key: want });
-    let u; if (p.hand.includes('jailbreak') && (u = jb())) cmd(s, pid, { type: 'technique', key: 'jailbreak', target: u.id });
-    if (p.hand.includes('rlhf') && (u = rl())) cmd(s, pid, { type: 'technique', key: 'rlhf', target: u.id });
-  }
-
-  // ---- IA do rival ----
-  // 4.2.1 ordem de construção do Difícil por facção e era (acumula as eras alcançadas; o tipo repetido pede mais um)
-  const ORDER = { citadel: { 1: 'cluster', 2: 'cluster lab alignlab wall market datacenter tower', 3: 'cluster tower', 4: 'agi' }, foundry: { 1: 'cluster', 2: 'cluster lab alignlab wall market datacenter', 3: 'cluster cluster', 4: 'agi' } };
-  function ai(s, pid) {
-    const df = DIFF[aiLevel(s, pid)], my = plan(s, pid, df);
-    if (my && df.micro) { micro(s, pid, my); if (Engine.aiTechniques) Engine.aiTechniques(s, pid); }
-  }
-  // macro: economia, prédios, produção, pesquisa, eras e ofensivas
-  function plan(s, pid, df) {
-    const p = s.players[pid]; const my = s.ents.filter((e) => e.owner === pid);
-    const hq = my.find((e) => e.type === 'hq'); if (!hq) return;
-    const eng = my.filter((e) => e.type === 'engineer'), mil = my.filter((e) => e.kind === 'unit' && e.type !== 'engineer' && !UNITS[e.type].civ);
-    const bld = (t) => my.filter((e) => e.kind === 'building' && e.type === t);
-    const ctx = hq.tx + 1, cty = hq.ty + 1;
-    const team = s.players.reduce((m, q) => isEnemy(s, pid, q.id) ? m : m | (1 << q.id), 0), known = (e) => e.seenBy === undefined || (e.seenBy & team); // 4.2.3: só o que o time já viu
-    const enemyHq = nearest(s, hq, (x) => x.type === 'hq' && isEnemy(s, pid, x.owner)); // só orienta o muro; o ataque usa o que o time já viu (4.2.3)
-    if (!hq.queue.length) {
-      if (eng.length < 8 + p.era * 2 + (df.eng || 0)) cmd(s, pid, { type: 'train', bid: hq.id, ut: 'engineer' });
-      else if (!heroAlive(s, pid)) cmd(s, pid, { type: 'train', bid: hq.id, ut: HERO[p.faction] });
-    }
-    const fetch = eng.filter((e) => e.task.kind === 'carryRelic'), loose = s.relics.filter((r) => r.lab == null && r.by == null && dist(hq, r) < 30 * TILE && !fetch.some((e) => e.task.relic === r.id)).sort((a, b) => dist(hq, a) - dist(hq, b));
-    if (p.era >= 2 && bld('lab').some((b) => b.built)) for (const e of eng.filter((x) => x.task.kind === 'idle' || x.task.kind === 'gather').slice(0, Math.max(0, 2 - fetch.length))) if (loose.length) cmd(s, pid, { type: 'carryRelic', ids: [e.id], relic: loose.shift().id }); // 2 Engineers buscam reliquias
-    const idle = eng.filter((e) => e.task.kind === 'idle');
-    if (idle.length) {
-      const want = { data: p.res.data / 1.5, gpu: p.res.gpu / (p.era >= 2 ? 1 : 0.4), research: p.res.research };
-      const rt = Object.keys(want).sort((a, b) => want[a] - want[b])[0];
-      const drops = my.filter((b) => b.kind === 'building' && b.built && BUILDINGS[b.type].drop);
-      const r = nearest(s, hq, (x) => x.kind === 'resource' && x.rtype === rt && drops.some((b) => dist(b, x) < 14 * TILE)) || nearest(s, hq, (x) => x.kind === 'resource', 45);
-      if (r) cmd(s, pid, { type: 'gather', ids: idle.map((e) => e.id), target: r.id });
-    }
-    // mercado: vende excesso do recurso mais abundante quando falta outro
-    if (bld('market').some((b) => b.built)) { const ks = Object.keys(p.res).sort((a, b) => p.res[b] - p.res[a]); if (p.res[ks[0]] > 600 && p.res[ks[2]] < 150) cmd(s, pid, { type: 'trade', from: ks[0], to: ks[2] }); }
-    const building = my.find((e) => e.kind === 'building' && !e.built);
-    const farRes = () => { const drops = my.filter((b) => b.kind === 'building' && b.built && BUILDINGS[b.type].drop); return nearest(s, hq, (x) => x.kind === 'resource' && !drops.some((b) => dist(b, x) < 10 * TILE), 32); };
-    const orderNext = () => { if (!df.micro) return null; const n = {}; for (let e = 1; e <= p.era; e++) for (const bt of ORDER[p.faction][e].split(' ')) { n[bt] = (n[bt] || 0) + 1; if (bld(bt).length < n[bt]) return bt; } return null; };
-    const orderBuild = (bt) => { // sem recurso: espera (bloqueia a escada comum); sem lugar: deixa a escada comum seguir
-      if (!canAfford(p, BUILDINGS[bt].cost)) return true;
-      if (bt === 'wall') { // trecho de 3 muros a 5 tiles do HQ, de frente para o inimigo
-        const a = enemyHq ? Math.atan2(enemyHq.y - hq.y, enemyHq.x - hq.x) : 0, cx = ctx + Math.round(Math.cos(a) * 5), cy = cty + Math.round(Math.sin(a) * 5), px = Math.round(-Math.sin(a)), py = Math.round(Math.cos(a));
-        const e = eng[eng.length - 1]; return e && cmd(s, pid, { type: 'buildline', ids: [e.id], bt, tiles: [-1, 0, 1].map((k) => [cx + px * k, cy + py * k]) });
-      }
-      const far = bt === 'datacenter' && farRes(); return build(bt, far ? [far.tx, far.ty] : null);
-    };
-    const build = (bt, near) => { const sp = findSpot(s, bt, near ? near[0] : ctx, near ? near[1] : cty); const e = eng[eng.length - 1]; return sp && e && cmd(s, pid, { type: 'build', ids: [e.id], bt, tx: sp[0], ty: sp[1] }); };
-    if (building && eng.length) { if (!eng.some((e) => e.task.kind === 'build')) cmd(s, pid, { type: 'repair', ids: [eng[eng.length - 1].id], target: building.id }); }
-    else if (!bld('cluster').length) build('cluster');
-    else if (pop(s, pid) >= popCap(s, pid) - 3) build('rack');
-    else if (df.micro && orderNext() && orderBuild(orderNext())) { /* Difícil: ordem por facção e era */ }
-    else if (p.era >= 2 && !bld('lab').length) build('lab');
-    else if (p.era >= 2 && !bld('market').length) build('market');
-    else if (p.era >= 2 && !bld('alignlab').length) build('alignlab');
-    else if (p.era >= 2 && bld('tower').length < 2) build('tower');
-    else if (p.era >= 3 && bld('cluster').length < 2) build('cluster');
-    else if (p.era >= 3 && bld('tower').length < 4) build('tower');
-    else if (p.era >= 4 && !bld('agi').length) build('agi');
-    else { // recurso longe de qualquer depósito: expande com Data Center
-      const far = farRes();
-      if (far && bld('datacenter').length < 3) build('datacenter', [far.tx, far.ty]);
-    }
-    const intruder = nearest(s, hq, (x) => x.kind === 'unit' && isEnemy(s, pid, x.owner), 16);
-    const foes = s.ents.filter((e) => e.kind === 'unit' && e.owner >= 0 && isEnemy(s, pid, e.owner) && !UNITS[e.type].gather && !UNITS[e.type].civ), fc = {}; for (const e of foes) if (!UNITS[e.type].hero) fc[UNITS[e.type].cls] = (fc[UNITS[e.type].cls] || 0) + 1;
-    const foeMost = Object.keys(fc).sort((a, b) => fc[b] - fc[a])[0], beats = (ut) => (COUNTER[UNITS[ut].cls] || {})[foeMost] || 1;
-    const counts = {}; for (const u of mil) counts[UNITS[u.type].cls] = (counts[UNITS[u.type].cls] || 0) + 1;
-    // poupa para avançar de era quando já tem exército razoável
-    const saving = ADVANCE[p.era] && mil.length >= 8 + p.era * 2 && !intruder && !canAfford(p, ADVANCE[p.era].cost);
-    for (const c of saving ? [] : bld('cluster').filter((b) => b.built && !b.queue.length)) {
-      // composição: evita repetir a classe mais numerosa; cerco só na era 3+ e com exército
-      let opts = ROSTER[p.faction].filter((ut) => UNITS[ut].tier <= p.era && canAfford(p, UNITS[ut].cost) && (UNITS[ut].cls !== 'siege' || (df.siege !== false && mil.length >= 8 && (counts.siege || 0) < 3)));
-      const most = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
-      if (opts.length > 1 && most) opts = opts.filter((ut) => UNITS[ut].cls !== most || UNITS[ut].cls === 'siege').concat(opts.filter((ut) => UNITS[ut].cls === most));
-      opts.sort((a, b) => UNITS[b].tier - UNITS[a].tier || (UNITS[a].cls === most ? 1 : -1));
-      if (df.micro && foeMost) opts.sort((a, b) => beats(b) - beats(a)); // Difícil: contra a classe rival mais numerosa (sort estável mantém a ordem acima no empate)
-      if (opts.length) cmd(s, pid, { type: 'train', bid: c.id, ut: opts[0] });
-    }
-    for (const l of bld('lab').filter((b) => b.built && !b.queue.length)) {
-      const t = techList(p).find((k) => !p.techs[k] && TECHS[k].era <= p.era && canAfford(p, TECHS[k].cost));
-      if (t) cmd(s, pid, { type: 'research', bid: l.id, tech: t });
-    }
-    if (ADVANCE[p.era] && !hq.queue.length && mil.length >= 3) cmd(s, pid, { type: 'advance', bid: hq.id });
-    for (const l of pendingTalents(s, pid)) cmd(s, pid, { type: 'talent', lvl: l, k: TALENTS[l][0].k }); // 3.2.8: IA pega o primeiro talento
-    const hero = mil.find((u) => UNITS[u.type].hero);
-    if (df.ability !== false && hero && s.ents.some((x) => x.kind === 'unit' && x.owner >= 0 && isEnemy(s, pid, x.owner) && dist(x, hero) < 6 * TILE)) { if (hero.abilityCd === 0) cmd(s, pid, { type: 'ability', id: hero.id }); cmd(s, pid, { type: 'ability2', id: hero.id }); }
-    // 4.2.3: da era 2 em diante, 1 militar (não herói) visita o ponto de exploração não visto mais perto; fica fora das levas
-    const ptsSeen = s.players.reduce((m, q) => team & (1 << q.id) ? m | q.explored : m, 0), todo = SCOUT_PTS.map((_, k) => k).filter((k) => !(ptsSeen & (1 << k)));
-    let sc = byId(s, p.scout); if (sc && sc.owner !== pid) sc = null;
-    if (p.era >= 2 && todo.length) {
-      if (!sc) { sc = mil.find((u) => u.task.kind === 'idle' && !UNITS[u.type].hero && !UNITS[u.type].civ); p.scout = sc ? sc.id : null; p.scoutWp = null; }
-      if (sc && sc.task.kind === 'idle') {
-        if (p.scoutWp != null) p.explored |= 1 << p.scoutWp; // chegou (ou não alcança): conta como explorado, não trava
-        const d = (k) => Math.hypot((SCOUT_PTS[k][0] + 0.5) * TILE - sc.x, (SCOUT_PTS[k][1] + 0.5) * TILE - sc.y), k = todo.filter((k) => k !== p.scoutWp).sort((a, b) => d(a) - d(b))[0];
-        p.scoutWp = k === undefined ? null : k; if (k !== undefined) cmd(s, pid, { type: 'move', ids: [sc.id], x: (SCOUT_PTS[k][0] + 0.5) * TILE, y: (SCOUT_PTS[k][1] + 0.5) * TILE });
-      }
-    } else p.scout = null;
-    const haven = bld('alignlab').find((b) => b.built), idleMil = mil.filter((u) => u.task.kind === 'idle' && u.id !== p.scout && !(df.micro && haven && u.hp < u.maxHp * 0.6 && dist(u, haven) < 7 * TILE)); // Difícil: quem se cura no Lab fica fora; o batedor também
-    if (df.micro) { // Caravanas: até 2, do Exchange ao Data Center mais longe
-      const mk = bld('market').find((b) => b.built), dc = bld('datacenter').filter((b) => b.built).sort((a, b) => dist(b, mk || hq) - dist(a, mk || hq))[0], cv = my.filter((e) => e.type === 'caravan');
-      if (mk && dc) { if (cv.length < 2 && !mk.queue.length) cmd(s, pid, { type: 'train', bid: mk.id, ut: 'caravan' }); const ic = cv.filter((e) => e.task.kind === 'idle'); if (ic.length) cmd(s, pid, { type: 'caravan', ids: ic.map((e) => e.id), target: dc.id }); }
-    }
-    const tgt = s.t >= df.firstAttack && nearest(s, hq, (x) => x.kind === 'building' && isEnemy(s, pid, x.owner) && known(x));
-    const setStance = (v) => { const ids = idleMil.filter((u) => (u.stance || 'aggressive') !== v).map((u) => u.id); if (ids.length) cmd(s, pid, { type: 'stance', ids, v }); }; // 3.2.1: defensiva em casa, agressiva nos ataques
-    if (intruder && idleMil.length) { setStance('defensive'); cmd(s, pid, { type: 'attack', ids: idleMil.map((u) => u.id), target: intruder.id }); }
-    else if (tgt && (!df.wave || s.t - (p.aiWave || 0) >= df.wave) && (df.micro ? idleMil.length >= 4 && (power(idleMil) >= power(foes) || idleMil.length >= 30) : idleMil.length >= Math.max(4, df.army + p.era * 2 - Math.floor(s.t / 600)))) { p.aiWave = s.t; setStance('aggressive'); cmd(s, pid, { type: 'attackmove', ids: idleMil.map((u) => u.id), x: tgt.x, y: tgt.y }); }
-    else setStance('defensive');
-    return my;
-  }
-  // força de combate (vida x dano/s): o Difícil só sai quando o exército ocioso supera o militar rival inteiro
-  const power = (us) => us.reduce((a, u) => a + u.hp * UNITS[u.type].atk / ATTACK_RATE[UNITS[u.type].cls], 0);
-  // micro do Difícil, por unidade militar: recua a 25% de vida, kiting de quem atira contra melee a < 2 tiles, foca Engineers
-  function micro(s, pid, my) {
-    const hq = my.find((e) => e.type === 'hq'), haven = my.find((e) => e.type === 'alignlab' && e.built) || hq;
-    for (const u of my) {
-      if (u.kind !== 'unit' || u.type === 'engineer' || UNITS[u.type].civ) continue;
-      if (u.hp <= u.maxHp * 0.25) { const hx = haven.x, hy = haven.y + radius(haven) + 20; if (dist(u, haven) > 4 * TILE && !(u.task.kind === 'move' && Math.hypot(u.task.x - hx, u.task.y - hy) < TILE)) cmd(s, pid, { type: 'move', ids: [u.id], x: hx, y: hy }); continue; }
-      const melee = stat(s, u, 'range') > 1.5 && nearest(s, u, (x) => x.kind === 'unit' && isEnemy(s, pid, x.owner) && UNITS[x.type].range <= 1.5 && !UNITS[x.type].gather && !UNITS[x.type].civ, 2);
-      if (melee) { const a = Math.atan2(u.y - melee.y, u.x - melee.x); cmd(s, pid, { type: 'move', ids: [u.id], x: Math.max(TILE, Math.min((MAP_W - 1) * TILE, u.x + Math.cos(a) * 3 * TILE)), y: Math.max(TILE, Math.min((MAP_H - 1) * TILE, u.y + Math.sin(a) * 3 * TILE)) }); continue; }
-      const cur = u.task.kind === 'attack' && byId(s, u.task.target); if (cur && cur.kind === 'unit') continue;
-      const en = nearest(s, u, (x) => x.kind === 'unit' && x.owner >= 0 && isEnemy(s, pid, x.owner) && UNITS[x.type].gather, AGGRO);
-      if (en) cmd(s, pid, { type: 'attack', ids: [u.id], target: en.id });
-    }
-  }
-
   // Estado de animação derivado da tarefa (sem estado novo, nada a serializar): attack se golpeou há < 0.5 s, walk se tem rota, senão idle.
   const animState = (s, u) => u.lunge !== undefined && s.t - u.lunge < 0.5 ? 'attack' : u.path && u.task.kind !== 'idle' ? 'walk' : 'idle';
 
   // ---- salvar / carregar ----
   const serialize = (s) => JSON.stringify(s, (k, v) => v instanceof Uint8Array ? Array.from(v) : v);
-  function deserialize(json) { const s = JSON.parse(json); s.props = s.props || []; s.fields = s.fields || []; s.relics = s.relics || []; s.mono = s.mono || { owner: -1, t: 0 }; for (const p of s.players) { p.talents = p.talents || {}; p.hand = p.hand || []; if (p.team === undefined) p.team = p.id; if (p.ai === undefined) p.ai = p.id !== 0; p.explored = p.explored || 0; } s.weather = s.weather || 'clear'; s.weatherSlot = s.weatherSlot || 0; s.camFav = s.camFav || {}; s.biome = s.biome || new Array(MAP_W * MAP_H).fill(0);
+  function deserialize(json) { const s = JSON.parse(json); s.W = s.W || 72; s.H = s.H || 54; /* onda5/mapa: save sem dimensões = Médio */ s.props = s.props || []; s.fields = s.fields || []; s.relics = s.relics || []; s.mono = s.mono || { owner: -1, t: 0 }; for (const p of s.players) { p.talents = p.talents || {}; p.hand = p.hand || []; if (p.team === undefined) p.team = p.id; if (p.ai === undefined) p.ai = p.id !== 0; p.explored = p.explored || 0; } s.weather = s.weather || 'clear'; s.weatherSlot = s.weatherSlot || 0; s.camFav = s.camFav || {}; s.biome = s.biome || new Array(s.W * s.H).fill(0);
     s.rngState = s.rngState == null ? s.seed >>> 0 : s.rngState; s.stats = s.stats || { perMin: [] }; s.spectate = false; attachRng(s); if (s.record && s.cmds) s.cmds.push({ t: s.t, pid: -1, c: { type: '_load' } }); // 4.2.5: save antigo sem cmds = sem replay
     for (const k of ['grid', 'seen', 'vis', 'biome']) s[k] = Uint8Array.from(s[k]);
     if (!s.victory) { s.victory = ['conquest', 'agi', 'monopoly']; for (let i = 0; i < s.grid.length; i++) if (s.grid[i] >= 6) s.grid[i] += 2; } // save antigo: muro era 6+dono, agora 8+dono
@@ -931,6 +847,6 @@
 
   // ---- 3.4.3: estado musical (puro): batalha com 4+ unidades do jogador atacando; tensão com inimigo visível; senão paz
   const musicState = (s) => s.ents.filter((u) => u.kind === 'unit' && u.owner === 0 && u.task.kind === 'attack').length >= 4 ? 'battle' : s.ents.some((e) => e.kind === 'unit' && e.owner >= 0 && isEnemy(s, 0, e.owner) && visibleTo0(s, e)) ? 'tension' : 'peace';
-  const Engine = { isEnemy, score, musicState, BIOMES, TALENTS, ABILITY2_LVL, techList, dropBonus, pendingTalents, edgeDist, animState, idleIds, lastAlertPos, glide, RELICS, MONO, VISION, ownerColor, PROPS, roads, ai, formation, pickTarget, ATTACK_RATE, TILE, MAP_W, MAP_H, ERAS, ADVANCE, RES, UNITS, ROSTER, HERO, HEROES, BUILDINGS, TECHS, DIFF, COUNTER, MAX_LVL, xpFor, heroLevel, mods, stat, tradeRate, heroAlive, createGame, spawn, buildingAtk, step, cmd, canPlace, findSpot, canAfford, pop, popCap, trainable, byId, astar, visibleTo0, damageMult, serialize, deserialize, DT, advance, replay, TECHNIQUES, HAND_MAX, TECH_BUY_CD, aiTechniques, place, aiLevel };
-  if (typeof module !== 'undefined') module.exports = Engine; else root.Engine = Engine;
+  const Engine = { separate, SEP, flowField, FLOW_MIN, isEnemy, score, musicState, BIOMES, TALENTS, ABILITY2_LVL, techList, dropBonus, pendingTalents, edgeDist, animState, idleIds, lastAlertPos, glide, RELICS, MONO, VISION, ownerColor, PROPS, roads, formation, pickTarget, ATTACK_RATE, TILE, SIZES, ERAS, ADVANCE, RES, UNITS, ROSTER, HERO, HEROES, BUILDINGS, TECHS, DIFF, COUNTER, MAX_LVL, xpFor, heroLevel, mods, stat, tradeRate, heroAlive, createGame, spawn, buildingAtk, step, cmd, canPlace, findSpot, canAfford, pop, popCap, trainable, byId, astar, visibleTo0, damageMult, serialize, deserialize, DT, advance, replay, TECHNIQUES, HAND_MAX, TECH_BUY_CD, place, aiLevel, nearest, dist, radius, AGGRO, scoutPts, hostile, inReach }; // ai e aiTechniques: ai.js
+  if (typeof module !== 'undefined') { module.exports = Engine; require('./ai.js'); } else root.Engine = Engine; // Node: a engine carrega a IA (test.js e tools/ não precisam de outro require)
 })(typeof window !== 'undefined' ? window : globalThis);

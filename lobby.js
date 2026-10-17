@@ -1,6 +1,6 @@
 // Compute Wars — Onda 4 ui-lobby: 4.3.1 lobby, 4.3.2 opções, 4.5.1 teclado, 4.5.2 trackpad, 4.5.3 minimapa redimensionável.
 // Carregado por último. Dono do contrato 5: begin(opts) e startScreen(). Sem `function begin` aqui: o hoisting apagaria a versão de index.html.
-const OPT = { edge: true, wheel: 'pan' }; try { Object.assign(OPT, JSON.parse(localStorage.getItem('cw_opts') || '{}')); } catch (e) {}
+const OPT = { leftMove: true, edge: true, wheel: 'pan', edgeDead: 150, edgeAccel: 1 }; /* 5.5.3 (nav.js): zona morta em ms e aceleração 0 Constante, 1 Suave, 2 Rápida */ try { Object.assign(OPT, JSON.parse(localStorage.getItem('cw_opts') || '{}')); } catch (e) {}
 const saveOpt = () => { try { localStorage.setItem('cw_opts', JSON.stringify(OPT)); } catch (e) {} };
 
 // ---- contrato 5: begin(opts) cria a partida; begin(estado) segue como antes (saves, tutorial, roteiros) ----
@@ -22,7 +22,7 @@ const MODES = { '1v1': [0, 1], '1v2': [0, 1, 1], '2v2': [0, 0, 1, 1], ffa: [0, 1
 const MODE_N = { '1v1': '1v1', '1v2': '1v2', '2v2': '2v2', ffa: 'Todos contra todos' };
 const DIFFS = [['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil'], ['insane', 'Insano']];
 const VICT = [['conquest', 'Conquista', 'Destrua o Lab HQ rival'], ['agi', 'AGI', 'Conclua o AGI Deployment e resista 120 s'], ['monopoly', 'Monopólio', 'Guarde os 5 Datasets por 5 min'], ['points', 'Pontos', 'Maior placar aos 30 min']];
-const SIZES = [['small', 'Pequeno', 0], ['medium', 'Médio', 1], ['large', 'Grande', 0]]; // MAP_W/MAP_H são constantes: só o Médio (72×54) existe
+const SIZES = [['small', 'Pequeno', 1, '54 × 40 tiles: partidas curtas'], ['medium', 'Médio', 1, '72 × 54 tiles'], ['large', 'Grande', 1, '108 × 81 tiles: espaço para 4 jogadores e expansão']]; // onda5/mapa: 54×40, 72×54, 108×81 (E.SIZES)
 const SPEEDS = [0.5, 1, 1.5, 2, 3];
 const COLORS = [['', 'Cor da facção'], ['#7FE6F0', 'Ciano'], ['#A8FF38', 'Lima'], ['#F2E9D8', 'Marfim'], ['#FF8FD8', 'Rosa']];
 const newSeed = () => (Date.now() & 0xffff) || 7;
@@ -34,9 +34,9 @@ const slotCol = (i) => E.ownerColor({ players: LB.slots.map((s, k) => ({ id: k, 
 
 // preview: a partida é gerada (sem iniciar) e desenhada como o minimapa (ui-world.js), mais anel numerado no HQ e legenda
 function drawPreview() {
-  const c = $('lb-prev'); if (!c) return; const g = c.getContext('2d'), s = makeGame(lobbyOpts()), W = c.width, H = c.height, tw = W / E.MAP_W, th = H / E.MAP_H, px = W / (E.MAP_W * T), py = H / (E.MAP_H * T);
+  const c = $('lb-prev'); if (!c) return; const g = c.getContext('2d'), s = makeGame(lobbyOpts()), W = c.width, H = c.height, tw = W / s.W, th = H / s.H, px = W / (s.W * T), py = H / (s.H * T);
   const col = (o) => (o >= 0 && s.players[o] && s.players[o].color) || E.ownerColor(s, o);
-  for (let y = 0; y < E.MAP_H; y++) for (let x = 0; x < E.MAP_W; x++) { const i = y * E.MAP_W + x; g.fillStyle = s.grid[i] === 3 ? '#2a2e33' : E.BIOMES[s.biome[i]].col; g.fillRect(x * tw, y * th, tw + 0.5, th + 0.5); }
+  for (let y = 0; y < s.H; y++) for (let x = 0; x < s.W; x++) { const i = y * s.W + x; g.fillStyle = s.grid[i] === 3 ? '#2a2e33' : E.BIOMES[s.biome[i]].col; g.fillRect(x * tw, y * th, tw + 0.5, th + 0.5); }
   for (const e of s.ents) { if (e.kind === 'resource') { g.fillStyle = RCOL[e.rtype]; g.fillRect(e.x * px - 1.5, e.y * py - 1.5, 3, 3); } else if (e.kind === 'building') { g.fillStyle = col(e.owner); g.fillRect(e.tx * tw, e.ty * th, e.w * tw, e.h * th); g.strokeStyle = '#000'; g.lineWidth = 1; g.strokeRect(e.tx * tw, e.ty * th, e.w * tw, e.h * th); } }
   for (const r of s.relics) { g.fillStyle = RELIC_COL[r.id]; g.beginPath(); g.arc(r.x * px, r.y * py, 3, 0, 7); g.fill(); }
   g.font = '700 11px IBM Plex Mono, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -84,18 +84,18 @@ const lobbyMsg = (m) => { const el = $('lb-msg'); if (el) el.textContent = m; };
 function startScreen() {
   for (const id of ['top', 'bottom', 'hand']) { const el = $(id); if (el) el.inert = true; } /* HUD da partida fica atrás do lobby: fora do foco (WCAG 2.4.3) */
   const ob = $('cw-obj'); if (ob) ob.style.display = 'none'; /* objetivos de missão não ficam no lobby */ Audio.stopAmbient(); const menuMusic = () => { if (Audio.unlock() && (!S || S.winner !== null)) Sound.start('menu'); }; if (Audio.ctx) menuMusic(); else addEventListener('pointerdown', menuMusic, { once: true }); /* 4.4.2 tema de menu (precisa de gesto para destravar o áudio) */ const o = $('overlay'); o.style.display = 'flex'; o.style.backgroundImage = 'url(assets/ui_title.jpg)'; document.body.dataset.f = chosen;
-  let saved = null; try { saved = localStorage.getItem('cw_save'); } catch (e) {}
+  const saved = typeof Saves !== 'undefined' && Saves.any(); // 5.2.4: slots (o cw_save antigo migra para o slot 1)
   if (!LB.slots.length) buildSlots();
   const F = Object.keys(E.ROSTER), extra = [[typeof Campaign !== 'undefined', 'cpbtn', 'Campanha', () => Campaign.open()], [typeof Replay !== 'undefined', 'rpbtn', 'Replays', () => Replay.open()], [typeof Profile !== 'undefined', 'pfbtn', 'Perfil', () => Profile.open()]].filter((x) => x[0]); // contrato 5: só se o global existir
-  o.innerHTML = `<div class="title"><header><h1>COMPUTE WARS</h1><h2>AN AGE OF ENGINEERED INTELLIGENCE</h2></header>
+  o.innerHTML = `<div class="title"><header><h1 class="logo"><img src="assets/logo.svg" alt="Compute Wars"></h1><h2>AN AGE OF ENGINEERED INTELLIGENCE</h2></header>
     <footer><div class="factions" style="--n:${F.length}">${F.map((f) => { const t = facTxt(f); return `<div class="fac ${chosen === f ? 'sel' : ''}" data-f="${f}" tabindex="0" role="button" aria-pressed="${chosen === f}"><img src="assets/ui_emblem_${f}.png" alt="" onerror="this.style.visibility='hidden'"><img class="hero" src="assets/ui_portrait_${E.HERO[f]}.png" alt="" onerror="this.style.visibility='hidden'"><div><em>${t[0]}</em><b>${t[1]}</b><small>${t[2]}</small></div></div>`; }).join('')}</div>
     <div id="lobby"></div>
-    <p class="lb-btns"><button class="cta" id="start">Iniciar partida</button>${saved ? '<button class="cta" id="loadbtn">Continuar jogo salvo</button>' : ''}<button class="cta" id="tutbtn">Tutorial</button>${extra.map(([, id, n]) => `<button class="cta" id="${id}">${n}</button>`).join('')}<button class="cta alt" id="optbtn">Opções</button></p><p id="lb-msg" role="status"></p></footer></div>`;
+    <p class="lb-btns"><button class="cta" id="start">Iniciar partida</button>${saved ? '<button class="cta" id="loadbtn">Carregar jogo</button>' : ''}<button class="cta" id="tutbtn">Tutorial</button>${extra.map(([, id, n]) => `<button class="cta" id="${id}">${n}</button>`).join('')}<button class="cta alt" id="optbtn">Opções</button></p><p id="lb-msg" role="status"></p></footer></div>`;
   $('tutbtn').onclick = () => { Audio.unlock(); begin(E.createGame({ faction: chosen, difficulty: 'easy', seed: 7 }), true); Tutorial.start(); }; // 3.3.3: partida fácil com semente fixa
   o.querySelectorAll('.fac').forEach((f) => { f.onclick = () => { chosen = f.dataset.f; document.body.dataset.f = chosen; o.querySelectorAll('.fac').forEach((x) => { x.classList.toggle('sel', x === f); x.setAttribute('aria-pressed', x === f); }); buildSlots(); renderLobby(); SFX.click(); }; f.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); f.click(); } }; });
   $('lobby').addEventListener('click', lobbyClick); $('lobby').addEventListener('change', lobbyChange); $('lobby').addEventListener('input', (e) => { if (e.target.dataset.k === 'seed') lobbyChange(e); });
   $('start').onclick = () => { Audio.unlock(); begin(lobbyOpts()); };
-  if (saved) $('loadbtn').onclick = () => { Audio.unlock(); try { begin(E.deserialize(saved)); } catch (e) { lobbyMsg('Save corrompido: não foi possível carregar'); } };
+  if (saved) $('loadbtn').onclick = () => { Audio.unlock(); Saves.open('load'); };
   for (const [, id, , fn] of extra) $(id).onclick = () => { Audio.unlock(); fn(); };
   $('optbtn').onclick = () => { Options.open(); SFX.click(); };
   renderLobby();
@@ -106,8 +106,8 @@ const STANCE_DEF = Object.values(STANCE);
 const KEY_ACT = [...Object.keys(HOTKEY).map((b) => [b, E.BUILDINGS[b].name, 'eng']), ...STANCE_DEF.map((v) => ['stance_' + v[0], `Postura ${v[1]}`, 'mil']), ['ability', 'Habilidade do herói', 'any'], ['ability2', 'Habilidade 2 do herói', 'mil']];
 const KEY_DEF = Object.fromEntries([...Object.entries(HOTKEY), ...Object.entries(STANCE).map(([k, v]) => ['stance_' + v[0], k.toUpperCase()]), ['ability', HERO_KEY.ability], ['ability2', HERO_KEY.ability2]]);
 // contexto: prédio = Engineers selecionados; militar = postura e habilidade 2; any = habilidade 1 (vale com qualquer seleção). Letras com uso fixo que vem antes no keydown:
-const KEY_RES = { eng: 'APSHMNEWXFV', mil: 'TAPSHMNGU' }; KEY_RES.any = KEY_RES.eng + KEY_RES.mil + 'RWASD';
-const FIXED_N = { A: 'Ataque-mover', P: 'Patrulhar', S: 'Parar', H: 'HQ', M: 'Modo do minimapa', N: 'Mapa inteiro', E: 'Economia', W: 'Militar e câmera', X: 'Pesquisa', F: 'Defesa', V: 'Vitória', T: 'Árvore de tecnologias', G: 'Guarnecer', U: 'Sair da guarnição', R: 'Ponto de encontro', D: 'Câmera' };
+const KEY_RES = { eng: 'APSHMNEWXFV', mil: 'TAPSHMNGU' }; KEY_RES.any = KEY_RES.eng + KEY_RES.mil + 'RWASDY'; KEY_RES.eng += 'Y'; KEY_RES.mil += 'Y'; /* 5.3.3: Y = histórico (notify.js) */
+const FIXED_N = { A: 'Ataque-mover', P: 'Patrulhar', S: 'Parar', H: 'HQ', M: 'Modo do minimapa', N: 'Mapa inteiro', E: 'Economia', W: 'Militar e câmera', X: 'Pesquisa', F: 'Defesa', V: 'Vitória', T: 'Árvore de tecnologias', G: 'Guarnecer', U: 'Sair da guarnição', R: 'Ponto de encontro', D: 'Câmera', Y: 'Histórico' };
 function keyClash(act, key, map) {
   const ctx = KEY_ACT.find((a) => a[0] === act)[2];
   if (!/^[A-Z]$/.test(key)) return 'Use uma letra de A a Z';
@@ -133,11 +133,14 @@ const Options = (() => {
       <section><h3>Som</h3><label class="row"><span class="ln">Volume geral</span><input type="range" min="0" max="1" step="0.05" data-o="vol" value="${Audio.vol}"><b>${pct(Audio.vol)}</b></label>
         ${Object.entries(BUS).map(([k, n]) => `<label class="row"><span class="ln">${n}</span><input type="range" min="0" max="1" step="0.05" data-o="bus" data-bus="${k}" value="${Audio.busVol[k]}"><b>${pct(Audio.busVol[k])}</b></label>`).join('')}</section>
       <section><h3>Interface</h3>
-        <div class="row">Texto ${seg('ui', [[0.9, '90%'], [1, '100%'], [1.2, '120%']], (v) => +v === uiScale)}</div>
+        <div class="row">Texto ${seg('ui', [[0.9, '90%'], [1, '100%'], [1.2, '120%']], (v) => +v === uiPref)}</div>
         <div class="row">Modo daltônico ${seg('cb', [['0', 'Desligado'], ['1', 'Ligado']], (v) => (v === '1') === cbMode)}</div>
+        <div class="row">Clique esquerdo no chão ${seg('leftMove', [['1', 'Move', 1, 'Com unidades selecionadas, clicar no chão manda elas para lá'], ['0', 'Desseleciona', 1, 'Clássico: só o clique direito dá ordem']], (v) => (v === '1') === OPT.leftMove)}</div>
         <div class="row">Rolar pela borda ${seg('edge', [['1', 'Ligado'], ['0', 'Desligado']], (v) => (v === '1') === OPT.edge)}</div>
+        <div class="row">Zona morta da borda ${seg('edgeDead', [[0, 'Imediata'], [150, '0,15 s'], [300, '0,3 s'], [500, '0,5 s']].map(([v, n]) => [v, n, 1, 'Tempo com o cursor na borda antes de a câmera rolar']), (v) => +v === OPT.edgeDead)}</div>
+        <div class="row">Aceleração da borda ${seg('edgeAccel', [[0, 'Constante', 1, 'Mesma velocidade o tempo todo'], [1, 'Suave', 1, 'Começa em 50% e chega a 160% em 1,2 s'], [2, 'Rápida', 1, 'Começa em 50% e chega a 250% em 0,8 s']], (v) => +v === OPT.edgeAccel)}</div>
         <div class="row">Roda e dois dedos ${seg('wheel', [['pan', 'Rolam o mapa'], ['zoom', 'Dão zoom']], (v) => v === OPT.wheel)}</div>
-        <p class="note">Pinça do trackpad e Ctrl+roda sempre dão zoom. Atalhos fixos: Ctrl+H HQ, Ctrl+C Clusters, Ctrl+L Labs, vírgula militares ociosos, Ctrl+Espaço centraliza.</p></section>
+        <p class="note">Pinça do trackpad e Ctrl+roda sempre dão zoom. Atalhos fixos: Ctrl+H HQ, Ctrl+C Clusters, Ctrl+L Labs, vírgula militares ociosos, Ctrl+Espaço centraliza, Ctrl+duplo clique seleciona o tipo no mapa inteiro, Ctrl+Shift+clique seleciona a classe (militares, trabalhadores ou herói).</p></section>
       <section><h3>Atalhos</h3><div class="keys">${KEY_ACT.map(([a, n]) => `<span>${n}</span><button class="key${waiting === a ? ' wait' : ''}${m[a] !== KEY_DEF[a] ? ' mod' : ''}" data-a="${a}" aria-label="Tecla de ${n}: ${m[a]}">${waiting === a ? '…' : m[a]}</button>`).join('')}</div></section></div>
       <p class="msg" id="opts-msg" role="status"></p><div class="foot"><button class="tb" data-o="reset">Restaurar atalhos</button><button class="tb" data-o="close">Voltar <kbd>Esc</kbd></button></div></div>`;
   }
@@ -147,7 +150,7 @@ const Options = (() => {
     const b = e.target.closest('button'); if (!b) return; const { k, v, a, o } = b.dataset;
     if (o === 'close') return close(); if (o === 'reset') { KEYS = {}; try { localStorage.removeItem('cw_keys'); } catch (x) {} applyKeys(); waiting = null; render(); msg('Atalhos de volta ao padrão'); SFX.confirm(); return; }
     if (a) { waiting = a; render(); el.querySelector(`[data-a="${a}"]`).focus(); msg('Pressione uma letra (Esc cancela)'); SFX.click(); return; }
-    if (k === 'ui') setUiScale(+v); else if (k === 'cb') setCb(v === '1'); else if (k === 'edge') { OPT.edge = v === '1'; saveOpt(); } else if (k === 'wheel') { OPT.wheel = v; saveOpt(); } else return;
+    if (k === 'ui') setUiScale(+v); else if (k === 'cb') setCb(v === '1'); else if (k === 'edge') { OPT.edge = v === '1'; saveOpt(); } else if (k === 'leftMove') { OPT.leftMove = v === '1'; saveOpt(); } else if (k === 'wheel') { OPT.wheel = v; saveOpt(); } else if (k === 'edgeDead' || k === 'edgeAccel') { OPT[k] = +v; saveOpt(); } else return;
     SFX.click(); render(); const f = el.querySelector(`[data-k="${k}"][data-v="${v}"]`); if (f) f.focus();
   });
   // captura na janela: a tecla do remapeamento não chega ao jogo

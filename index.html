@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Compute Wars</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=EB+Garamond:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@700&display=swap" rel="stylesheet">
 <style>
@@ -87,7 +88,7 @@
   #info .keys { margin-top:auto; font:500 10px var(--mono); color:#9aa6ba; line-height:1.45; } #info .keys b { color:var(--ivory); background:rgba(255,255,255,.08); padding:0 4px; border-radius:2px; font-weight:500; border:1px solid rgba(255,255,255,.1); }
   #cards:empty { display:none; } #cards { width:110px; flex:none; margin:2px 0; display:grid; grid-template-columns:repeat(3, 1fr); grid-auto-rows:44px; gap:3px; align-content:flex-start; }
   #cards button { padding:0; border:1px solid #000; box-shadow:0 0 0 1px var(--m3); background:#07090d center/cover no-repeat; position:relative; cursor:pointer; } #cards button:hover { box-shadow:0 0 0 1px var(--m1); } #cards button i { position:absolute; left:0; right:0; bottom:0; height:3px; background:#3fd17a; } #cards button i.low { background:var(--danger); }
-  #actions { flex:1; min-width:376px; margin:0 2px; display:grid; grid-template-columns:repeat(5, minmax(72px, 1fr)); grid-template-rows:repeat(3, 60px); grid-auto-rows:60px; gap:4px; align-content:center; overflow:hidden; }
+  #actions { flex:1; min-width:376px; margin:0 2px; display:grid; grid-template-columns:repeat(5, minmax(72px, 1fr)); grid-template-rows:repeat(3, 60px); grid-auto-rows:60px; gap:4px; align-content:safe center; overflow:hidden auto; } #actions::-webkit-scrollbar { width:9px; } #actions::-webkit-scrollbar-track { background:rgba(0,0,0,.55); border-left:1px solid var(--m4); } #actions::-webkit-scrollbar-thumb { background:var(--brass); border:1px solid #000; } /* 5.3.1: mais de 15 cartões (Lab na era 4) rolam em vez de cortar a 1ª e a 4ª linha */
   #actions:empty { display:none; } #bottom:has(#actions:empty) #info { flex:1; width:auto; } #bottom:has(#cards:not(:empty)) #info { width:260px; } /* com retratos múltiplos, a ficha cede espaço à grade */ /* sem seleção: a ficha ocupa o lugar da grade */
   .slot { background:rgba(0,0,0,.35); border:1px solid #000; box-shadow:inset 0 0 0 1px rgba(255,255,255,.04), inset 0 0 10px #000; opacity:.5; }
   .cmd { position:relative; background:linear-gradient(180deg,#1d2835,#0f161e); border:1px solid #000; box-shadow:inset 0 1px 0 rgba(255,255,255,.1), inset 0 -2px 0 rgba(0,0,0,.5), 0 0 0 1px var(--m3); color:var(--ivory); cursor:pointer; text-align:left; padding:0 4px 0 5px; overflow:hidden; display:grid; grid-template-columns:42px minmax(0,1fr); grid-template-rows:auto auto; column-gap:5px; align-content:center; transition:box-shadow .12s, transform .06s, filter .12s; }
@@ -174,7 +175,11 @@
   #score table { width:100%; border-collapse:collapse; font:500 14px var(--mono); } #score td { padding:4px 8px; border-bottom:1px solid var(--line); text-align:right; } #score td:first-child { font:15px var(--body); color:#b7bfcc; text-align:left; } #score tr:first-child td { font:700 11px var(--label); letter-spacing:1px; text-transform:uppercase; border-bottom:1px solid var(--m3); }
   #score .era td:not(:first-child) { font:600 11px var(--display); letter-spacing:.5px; color:var(--m1); } #score small { display:block; margin-top:6px; font-size:12px; color:#6f7a8c; text-align:center; }
   /* 3.3.7 acessibilidade: escala da UI (menu: 90/100/120%); #tip/#hover ficam fora (posicionados em px pelo JS) */
-  :root { --ui:1; } #top, #bottom, #log, #modeline, #banner, #tut-box { zoom:var(--ui); }
+  :root { --ui:1; --fit:1; } #top, #bottom, #log, #modeline, #banner, #tut-box, #tip, #hover, #score, #tree .box, #talent .box, #cw-obj { zoom:var(--ui); }
+  /* 5.3.1: telas cheias (lobby, opções, tela final) seguem só o ajuste à janela, não a escala de texto */
+  #overlay > .box, #overlay .title > *, #opts .box, #saves .box { zoom:var(--fit); }
+  #miniwrap { align-items:flex-end; } #mini { margin-bottom:4px; } /* 5.3.1: o minimapa (232 px) sobe acima do painel em vez de sair pela base da janela */
+  /* 5.3.1: abaixo da largura cheia do painel (1600) retrato e ficha cedem espaço aos 5 cartões */ @media (max-width:1599px) { #portrait { width:120px; } #info { width:200px; } #bottom:has(#cards:not(:empty)) #info { width:170px; } .cmd { grid-template-columns:34px minmax(0,1fr); column-gap:4px; } .cmd .thumb { width:34px; height:34px; } .cmd .t { letter-spacing:0; font-size:10px; } .cmd .cost { font-size:10px; line-height:12px; gap:0 4px; } } @media (max-width:1439px) { .cmd { grid-template-columns:30px minmax(0,1fr); } .cmd .thumb { width:30px; height:30px; } #miniwrap { width:252px; } #mini { width:240px; height:186px; } } @media (max-width:1365px) { #miniwrap { width:212px; } #mini { width:200px; height:155px; } } /* 5.3.1: abaixo de 1440 o ícone e abaixo de 1366 o minimapa também cedem (AGI Deployment, 3×1000, cabe com 3 retratos na seleção; a 1440+ o minimapa segue com 300 px) */
   #menu .seg button { padding:6px 8px; font-size:11px; }
   /* 3.3.3 tutorial: recorte (sombra gigante), seta e placa; só a placa recebe clique */
   #tut { position:fixed; inset:0; z-index:4; pointer-events:none; } #tut[hidden] { display:none; }
@@ -204,6 +209,7 @@
 <div id="tut" hidden><div id="tut-hole"></div><div id="tut-arrow"></div><div id="tut-box" role="dialog" aria-label="Tutorial" aria-live="polite"><b></b><p></p><div><button class="tb" id="tut-next">Pular passo</button><button class="tb" id="tut-quit">Sair</button></div></div></div>
 <div id="overlay"></div>
 <script src="engine.js"></script>
+<script src="ai.js"></script>
 <script>
 const E = Engine, T = E.TILE;
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
@@ -223,11 +229,11 @@ const ownerCol = (o) => E.ownerColor(S, o); // rival sempre vermelho; FCOL só v
 // ---- assets ----
 const IMG = {}; const img = (n) => IMG[n] && IMG[n].complete && IMG[n].naturalWidth ? IMG[n] : null;
 function load(n, src) { const i = new Image(); i.src = src; IMG[n] = i; }
-for (const u in E.UNITS) if (u !== 'engineer' && u !== 'caravan') load('u_' + u, `assets/u_${u}.png`); // caravana usa o sprite do Engineer
+for (const u in E.UNITS) if (u !== 'engineer') load('u_' + u, `assets/u_${u}.png`); // onda5/arte: a caravana tem sprite próprio
 for (const f of Object.keys(E.ROSTER)) { load(`u_${f}_engineer`, `assets/u_${f}_engineer.png`); load(`ui_emblem_${f}`, `assets/ui_emblem_${f}.png`); for (const b in E.BUILDINGS) load(`b_${f}_${b}`, `assets/b_${f}_${b}.png`); }
 for (const f of Object.keys(E.ROSTER)) for (const b in E.BUILDINGS) if (!E.BUILDINGS[b].wall && !E.BUILDINGS[b].gate) load(`bg_${f}_${b}`, `assets/b_${f}_${b}_glow.png`); // 3.1.2: máscaras de brilho (falha -> sem brilho); muro/portão não têm máscara (evita 404)
 for (const r in E.RES) load('r_' + r, `assets/r_${r}.png`);
-for (const b of [...Object.keys(E.UNITS).filter((u) => u !== 'engineer' && u !== 'caravan' && !E.ROSTER.commons.includes(u) && u !== E.HERO.commons), 'citadel_engineer', 'foundry_engineer']) for (const st of ['idle', 'walk', 'attack', 'death']) load(`a_${b}_${st}`, `assets/anim/${b}_${st}.png`); // 3.1.1: folhas 6 quadros 128x128 (falha -> sprite estático)
+for (const b of [...Object.keys(E.UNITS).filter((u) => u !== 'engineer' && u !== 'caravan' && !E.ROSTER.commons.includes(u) && u !== E.HERO.commons), 'citadel_engineer', 'foundry_engineer']) for (const st of ['idle', 'walk', 'attack', 'death']) load(`a_${b}_${st}`, `assets/anim/${b}_${st}.png`); for (const b of [...E.ROSTER.commons, E.HERO.commons, 'commons_engineer']) load(`a_${b}_walk`, `assets/anim/${b}_walk.png`); /* onda5/arte: Commons só com folha de caminhada (parado/ataque/morte caem no sprite estático) */ // 3.1.1: folhas 6 quadros 128x128 (falha -> sprite estático)
 load('tc_base', 'assets/t_commons_base.png'); load('tc_ink', 'assets/t_commons_ink.png'); // 4.1.3: praça em volta do HQ da Commons (falha -> bioma)
 load('t1', 'assets/t_ground1.png'); load('t2', 'assets/t_ground2.png');
 for (const n of ['base', 'moss', 'plaza', 'road']) load('tp_' + n, `assets/t_plateau_${n}.png`); // terreno v2 (falha -> t1/t2 e cores)
@@ -235,17 +241,21 @@ const BIOME_TEX = [[], ['tb_foundry_base', 'tb_foundry_slag'], ['tb_hextech_base
 for (let i = 0; i < E.RELICS.length; i++) load('relic_' + i, `assets/r_relic_${i}.png`); // reliquias de Dataset (falha -> cristal procedural)
 for (const p of E.PROPS) load('p_' + p, `assets/p_${p}.png`);
 for (const r in E.RES) for (let v = 1; v <= 3; v++) load(`r_${r}_${v}`, `assets/r_${r}_${v}.png`);
-const unitImgName = (e) => e.type === 'engineer' || e.type === 'caravan' ? `u_${S.players[e.owner < 0 ? 0 : e.owner].faction}_engineer` : 'u_' + e.type;
+const unitImgName = (e) => e.type === 'engineer' ? `u_${S.players[e.owner < 0 ? 0 : e.owner].faction}_engineer` : 'u_' + e.type;
 const spriteOf = (e) => e.kind === 'unit' ? img(unitImgName(e)) : e.kind === 'building' ? img(`b_${S.players[e.owner].faction}_${e.type}`) : img(`r_${e.rtype}_${e.variant}`) || img('r_' + e.rtype);
 const unitSize = (u) => ({ worker: 44, infantry: 52, ranged: 52, heavy: 64, siege: 70, hero: 70 })[E.UNITS[u.type].cls] + (E.UNITS[u.type].tier === 4 ? 10 : 0);
 const plateR = (u) => ({ worker: 13, infantry: 16, ranged: 16, heavy: 19, siege: 21, hero: 20 })[E.UNITS[u.type].cls];
 </script>
+<script src="tips.js"></script>
 <script src="audio.js"></script>
+<script src="arte.js"></script>
 <script src="ui-world.js"></script>
 <script src="ui-panel.js"></script>
 <script src="campaign.js"></script>
 <script src="techniques.js"></script>
 <script src="teams.js"></script>
+<script src="notify.js"></script>
+<script src="nav.js"></script>
 <script>
 // ---- telas ----
 function resize() { cv.width = innerWidth; cv.height = innerHeight; }
@@ -275,11 +285,11 @@ let PANEL_H = 200; const viewH = () => cv.height - 44 - PANEL_H; // 3.3.7: PANEL
 const vw = () => cv.width / zoom, vh = () => cv.height / zoom;
 // 3.5.5: mapa inteiro (N): zoom em que 72x54 tiles cabem na area de jogo; clique no mapa volta ao zoom anterior naquele ponto (mousedown); loop centra o mapa quando ele cabe
 let fullMap = null;
-function toggleFullMap() { if (fullMap) { const c = { x: cam.x + vw() / 2, y: cam.y + (44 + viewH() / 2) / zoom }; zoom = fullMap.z; fullMap = null; centerOn(c.x, c.y, true); } else { fullMap = { z: zoom }; zoom = Math.min(cv.width / (E.MAP_W * T), viewH() / (E.MAP_H * T)); } }
+function toggleFullMap() { if (fullMap) { const c = { x: cam.x + vw() / 2, y: cam.y + (44 + viewH() / 2) / zoom }; zoom = fullMap.z; fullMap = null; centerOn(c.x, c.y, true); } else { fullMap = { z: zoom }; zoom = Math.min(cv.width / (S.W * T), viewH() / (S.H * T)); } }
 function setZoom(z, sx, sy) { fullMap = null; z = Math.max(0.5, Math.min(2.2, z)); sx = sx == null ? cv.width / 2 : sx; sy = sy == null ? cv.height / 2 : sy; const wx = cam.x + sx / zoom, wy = cam.y + sy / zoom; zoom = z; cam.x = cam.tx = wx - sx / zoom; cam.y = cam.ty = wy - sy / zoom; }
 function centerOn(x, y, instant) { cam.tx = x - vw() / 2; cam.ty = y - (44 + viewH() / 2) / zoom; if (instant) { cam.x = cam.tx; cam.y = cam.ty; } }
 const toWorld = (sx, sy) => ({ x: sx / zoom + cam.x, y: sy / zoom + cam.y });
-const seenAt = (e) => S.seen[Math.floor(e.y / T) * E.MAP_W + Math.floor(e.x / T)];
+const seenAt = (e) => S.seen[Math.floor(e.y / T) * S.W + Math.floor(e.x / T)];
 const visible = (e) => e.owner === 0 || e.kind === 'resource' || E.visibleTo0(S, e);
 function entAt(wx, wy) {
   let best = null, bd = 1e9;
@@ -306,11 +316,13 @@ let pan = null, panV = { x: 0, y: 0 }, spaceT = 0, spaceUsed = false, backPos = 
 function panStart(e) { e.preventDefault(); pan = { x: e.clientX, y: e.clientY, t: performance.now() }; panV = { x: 0, y: 0 }; spaceUsed = true; }
 addEventListener('mousemove', (e) => { if (!pan) return; const now = performance.now(), dt = Math.max(0.001, (now - pan.t) / 1000), dx = (e.clientX - pan.x) / zoom, dy = (e.clientY - pan.y) / zoom; cam.tx = cam.x -= dx; cam.ty = cam.y -= dy; panV = { x: -dx / dt * 0.5 + panV.x * 0.5, y: -dy / dt * 0.5 + panV.y * 0.5 }; pan = { x: e.clientX, y: e.clientY, t: now }; });
 addEventListener('mouseup', () => { if (pan && performance.now() - pan.t > 80) panV = { x: 0, y: 0 }; pan = null; });
+const IS_MAC = /Mac/.test(navigator.platform); /* no Mac, Ctrl+clique é o clique direito do sistema: vira ordem, não arrasto */
+const macRight = (e) => IS_MAC && e.button === 0 && e.ctrlKey && !e.metaKey && !e.shiftKey;
 cv.addEventListener('mousedown', (e) => {
-  if (S && (e.button === 1 || (e.button === 0 && (keys[' '] || e.metaKey || e.ctrlKey)))) return panStart(e);
+  if (S && (e.button === 1 || (e.button === 0 && !macRight(e) && (keys[' '] || e.metaKey || e.ctrlKey)))) return panStart(e);
   if (!S || S.winner !== null) return; Audio.unlock(); const w = toWorld(e.offsetX, e.offsetY); prevSel = sel.slice();
   if (fullMap && e.button === 0) { zoom = fullMap.z; fullMap = null; centerOn(w.x, w.y, true); return; }
-  if (e.button === 0) {
+  if (e.button === 0 && !macRight(e)) {
     if (ghost && E.BUILDINGS[ghost].wall) { wallDrag = { tx: Math.floor(w.x / T), ty: Math.floor(w.y / T) }; return; } // muro: arrasta uma linha
     if (ghost) { const d = E.BUILDINGS[ghost]; const tx = Math.floor(w.x / T) - Math.floor(d.w / 2), ty = Math.floor(w.y / T) - Math.floor(d.h / 2);
       if (E.cmd(S, 0, { type: 'build', ids: engineers().map((u) => u.id), bt: ghost, tx, ty })) { SFX.build((tx + d.w / 2) * T, (ty + d.h / 2) * T); order('build', (tx + d.w / 2) * T, (ty + d.h) * T); if (!e.shiftKey) ghost = null; } else { SFX.deny(); toast(why(d.cost, d.era, 0, !E.canPlace(S, ghost, tx, ty) ? MSG.noSpot : null) || 'Não foi possível construir', 'alert'); } refreshPanel(); return; }
@@ -320,9 +332,9 @@ cv.addEventListener('mousedown', (e) => {
       else { E.cmd(S, 0, { type: mode === 'attack' ? 'attackmove' : 'patrol', ids, x: w.x, y: w.y }); order(mode === 'attack' ? 'attack' : 'move', w.x, w.y); }
       SFX.attack(w.x, w.y); mode = null; refreshPanel(); return; }
     mouse.down = { x: e.offsetX, y: e.offsetY };
-  } else if (e.button === 2) { ghost = null; wallDrag = null; mode = null; rightClick(w); }
+  } else if (e.button === 2 || macRight(e)) { ghost = null; wallDrag = null; mode = null; rightClick(w); }
 });
-addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
+addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.cv = e.target === cv; }); /* cv: o cursor está no mapa, não numa carta, botão ou painel por cima dele */
 const wallLine = (a, w) => { const bx = Math.floor(w.x / T), by = Math.floor(w.y / T), horiz = Math.abs(bx - a.tx) >= Math.abs(by - a.ty), t = []; for (let i = 0, n = horiz ? Math.abs(bx - a.tx) : Math.abs(by - a.ty); i <= n; i++) t.push(horiz ? [a.tx + i * Math.sign(bx - a.tx || 1), a.ty] : [a.tx, a.ty + i * Math.sign(by - a.ty || 1)]); return t; };
 cv.addEventListener('mouseup', (e) => {
   if (wallDrag && e.button === 0) { const w = toWorld(e.offsetX, e.offsetY), tiles = wallLine(wallDrag, w); wallDrag = null; if (E.cmd(S, 0, { type: 'buildline', ids: engineers().map((u) => u.id), bt: ghost, tiles })) { SFX.build(w.x, w.y); order('build', w.x, w.y); if (!e.shiftKey) ghost = null; } else { SFX.deny(); toast(why(E.BUILDINGS[ghost].cost, E.BUILDINGS[ghost].era, 0, 'Não cabe aqui: escolha um terreno livre') , 'alert'); } refreshPanel(); return; }
@@ -330,6 +342,7 @@ cv.addEventListener('mouseup', (e) => {
   const a = mouse.down, b = { x: e.offsetX, y: e.offsetY }; mouse.down = null; let ids;
   if (Math.abs(a.x - b.x) < 5 && Math.abs(a.y - b.y) < 5) {
     const w = toWorld(b.x, b.y); const t = entAt(w.x, w.y); ids = t ? [t.id] : [];
+    if (OPT.leftMove && !e.shiftKey && selected().some((u) => u.kind === 'unit' && u.owner === 0) && (!t || (t.kind === 'resource' && engineers().length))) return rightClick(w); /* clique esquerdo no chão (ou recurso, com Engineers) manda as unidades selecionadas para lá */
     if (t && t.owner === 0 && t.kind === 'unit' && performance.now() - lastClick < 350) ids = S.ents.filter((u) => u.kind === 'unit' && u.owner === 0 && u.type === t.type && u.x > cam.x && u.x < cam.x + vw() && u.y > cam.y && u.y < cam.y + vh()).map((u) => u.id);
     lastClick = performance.now();
   } else { const A = toWorld(a.x, a.y), B = toWorld(b.x, b.y); const x0 = Math.min(A.x, B.x), x1 = Math.max(A.x, B.x), y0 = Math.min(A.y, B.y), y1 = Math.max(A.y, B.y);
@@ -342,7 +355,7 @@ function rightClick(w) {
   const es = selected(); const units = es.filter((u) => u.kind === 'unit' && u.owner === 0); const t = entAt(w.x, w.y);
   if (!units.length) { if (es.length === 1 && es[0].kind === 'building' && es[0].owner === 0 && es[0].built) { E.cmd(S, 0, { type: 'rally', bid: es[0].id, x: w.x, y: w.y, id: t ? t.id : undefined }); order('rally', w.x, w.y); SFX.confirm(); } return; }
   const ids = units.map((u) => u.id);
-  const rl = S.relics.find((r) => r.lab == null && Math.hypot(r.x - w.x, r.y - w.y) < 26 && S.seen[Math.floor(r.y / T) * E.MAP_W + Math.floor(r.x / T)]);
+  const rl = S.relics.find((r) => r.lab == null && Math.hypot(r.x - w.x, r.y - w.y) < 26 && S.seen[Math.floor(r.y / T) * S.W + Math.floor(r.x / T)]);
   if (rl && E.cmd(S, 0, { type: 'carryRelic', ids, relic: rl.id })) { order('gather', rl.x, rl.y); SFX.gather(rl.x, rl.y); toast(`Engineers vão buscar ${rl.name}`, 'info'); return; }
   if (!t) { E.cmd(S, 0, { type: 'move', ids, x: w.x, y: w.y }); order('move', w.x, w.y); SFX.move(w.x, w.y); return; }
   if (t.kind === 'resource') { if (E.cmd(S, 0, { type: 'gather', ids, target: t.id })) { order('gather', t.x, t.y); SFX.gather(t.x, t.y); } else { E.cmd(S, 0, { type: 'move', ids, x: w.x, y: w.y }); order('move', w.x, w.y); SFX.move(w.x, w.y); } return; }
@@ -400,14 +413,14 @@ cv.addEventListener('wheel', (e) => { if (!S) return; e.preventDefault(); if (e.
 addEventListener('keydown', (e) => { if (!S || !(e.metaKey || e.ctrlKey)) return; if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom(zoom * 1.2); } else if (e.key === '-') { e.preventDefault(); setZoom(zoom / 1.2); } else if (e.key === '0') { e.preventDefault(); setZoom(1.25); } });
 // 3.5.3: minimapa. Modos (M), Shift+clique = waypoint de camera (a camera visita em ordem), botao direito: clique = mover, arrasto = ataque-mover
 const MINI_MODES = ['Terreno', 'Unidades', 'Economia'], DIM = {}, dimCol = (h) => DIM[h] || (DIM[h] = '#' + h.slice(1).match(/../g).map((c) => Math.round(parseInt(c, 16) * 0.55).toString(16).padStart(2, '0')).join('')); let miniMode = 0, miniDrag = false, camWps = [], miniR = null; // dimCol: explorado fora da visao a 55% (sem alpha: tiles sobrepostos nao marcam grade)
-const miniWorld = (e) => { const r = mini.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * E.MAP_W * T, y: (e.clientY - r.top) / r.height * E.MAP_H * T }; };
+const miniWorld = (e) => { const r = mini.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * S.W * T, y: (e.clientY - r.top) / r.height * S.H * T }; };
 function miniTo(e) { const w = miniWorld(e); centerOn(w.x, w.y, true); }
 addEventListener('mousemove', (e) => { if (miniDrag) miniTo(e); if (miniR) { const w = miniWorld(e); miniR.cx = w.x; miniR.cy = w.y; } });
 addEventListener('mouseup', () => { miniDrag = false; if (!miniR) return; const ids = selected().filter((u) => u.kind === 'unit' && u.owner === 0).map((u) => u.id), drag = miniR.cx != null && Math.hypot(miniR.cx - miniR.x, miniR.cy - miniR.y) > 40, x = drag ? miniR.cx : miniR.x, y = drag ? miniR.cy : miniR.y; miniR = null;
   if (ids.length) { E.cmd(S, 0, { type: drag ? 'attackmove' : 'move', ids, x, y }); order(drag ? 'attack' : 'move', x, y); (drag ? SFX.attack : SFX.move)(); } });
 mini.addEventListener('mousedown', (e) => { e.preventDefault(); const w = miniWorld(e); if (e.button === 2) miniR = { x: w.x, y: w.y }; else if (e.shiftKey) { camWps.push({ x: w.x, y: w.y, t: 0 }); SFX.click(); } else { miniDrag = true; centerOn(w.x, w.y, true); } });
 mini.addEventListener('contextmenu', (e) => e.preventDefault());
-addEventListener('mouseover', (e) => { const b = e.target.closest && e.target.closest('[data-tip]'); const tip = $('tip'); if (b) { tip.innerHTML = b.dataset.tip; tip.style.display = 'block'; const r = b.getBoundingClientRect(); tip.style.left = Math.min(innerWidth - 310, r.left) + 'px'; tip.style.top = (r.top - 10 - tip.offsetHeight) + 'px'; } else tip.style.display = 'none'; });
+addEventListener('mouseover', (e) => { const b = e.target.closest && e.target.closest('[data-tip]'); const tip = $('tip'); if (b) { tip.innerHTML = b.dataset.tip; tip.style.display = 'block'; const r = b.getBoundingClientRect(); tip.style.left = Math.min(innerWidth - 310 * uiScale, r.left) / uiScale + 'px'; const th = tip.getBoundingClientRect().height; tip.style.top = (r.top - 10 * uiScale - th >= 0 ? r.top - 10 * uiScale - th : r.bottom + 10 * uiScale) / uiScale + 'px'; /* sem espaço em cima (barra do topo): abre embaixo, sem cobrir o vizinho */ /* 5.3.1: zoom escala left/top */ } else tip.style.display = 'none'; });
 function useAbility(h) { if (!h) return; const a = E.HEROES[h.type].ability; if (E.cmd(S, 0, { type: 'ability', id: h.id })) { SFX.ability(h.x, h.y); Voice.say(h, 'ability'); fx.push({ kind: 'ring', x: h.x, y: h.y, r: a.radius * T, t: 0, dur: 0.9, col: ownerCol(0), w: 4 }); fx.push({ kind: 'text', x: h.x, y: h.y - 40, t: 0, dur: 1.2, col: '#E8C547', text: a.name.toUpperCase() }); } else { SFX.deny(); toast(h.abilityCd > 0 ? `${a.name} recarrega em ${Math.ceil(h.abilityCd)} s` : 'Habilidade indisponível', 'alert'); } refreshPanel(); }
 // 3.2.8 habilidade 2 (nível 5+) e talentos (modal com dois cartões nos níveis 3/6/9)
 function useAbility2(h) { if (!h) return; const a = E.HEROES[h.type].ability2; if (E.cmd(S, 0, { type: 'ability2', id: h.id })) { SFX.ability(h.x, h.y); fx.push({ kind: 'ring', x: h.x, y: h.y, r: 3 * T, t: 0, dur: 0.9, col: '#E8C547', w: 4 }); fx.push({ kind: 'text', x: h.x, y: h.y - 40, t: 0, dur: 1.2, col: '#E8C547', text: a.name.toUpperCase() }); } else { SFX.deny(); toast(E.heroLevel(h) < E.ABILITY2_LVL ? `${a.name} libera no nível ${E.ABILITY2_LVL}` : `${a.name} recarrega em ${Math.ceil(h.ability2Cd)} s`, 'alert'); } refreshPanel(); }
@@ -432,10 +445,10 @@ function loop(now) {
   const real = Math.min(0.1, (now - last) / 1000); last = now; const dt = paused || intro ? 0 : real * speed;
   const sp = 640 * real / zoom, noSel = !sel.length;
   if (keys.arrowup || (keys.w && noSel)) cam.ty -= sp; if (keys.arrowdown || (keys.s && noSel)) cam.ty += sp; if (keys.arrowleft || (keys.a && noSel)) cam.tx -= sp; if (keys.arrowright || (keys.d && noSel)) cam.tx += sp;
-  if (OPT.edge) { if (mouse.x <= 2) cam.tx -= sp; if (mouse.x >= cv.width - 2) cam.tx += sp; if (mouse.y <= 2) cam.ty -= sp; if (mouse.y >= cv.height - 2) cam.ty += sp; }
+  Nav.tick(real, sp); /* 5.5.3 borda com zona morta e aceleração; 5.5.2 barra de grupos (nav.js) */
   if (intro) { intro.t += real; const k = Math.min(1, intro.t / 1.2); zoom = 1 + 0.4 * (1 - Math.pow(1 - k, 3)); const h0 = myHQ(); if (h0) centerOn(h0.x, h0.y); if (intro.t >= 2.5) endIntro(false); }
   if (keys[' '] && !spaceUsed && !pan && performance.now() - spaceT > 250) { spaceUsed = true; const a = E.lastAlertPos(S); if (a) { backPos = { x: cam.tx, y: cam.ty }; centerOn(a.x, a.y); } else toast(MSG.noAlert, 'info'); }
-  const xmax = E.MAP_W * T - vw(), ymax = E.MAP_H * T - (cv.width > 1800 ? cv.height : 44 + viewH()) / zoom;
+  const xmax = S.W * T - vw(), ymax = S.H * T - (cv.width > 1800 ? cv.height : 44 + viewH()) / zoom;
   if (!pan && (panV.x || panV.y)) { [cam.tx, panV.x] = E.glide(cam.tx, panV.x, real, 0, xmax); [cam.ty, panV.y] = E.glide(cam.ty, panV.y, real, -44 / zoom, ymax); cam.x = cam.tx; cam.y = cam.ty; }
   if (camWps.length) { const w = camWps[0]; centerOn(w.x, w.y); if (Math.abs(cam.tx - cam.x) < 2 && Math.abs(cam.ty - cam.y) < 2) { w.t += real; if (w.t > 1) camWps.shift(); } } // 3.5.3: visita os waypoints, 1 s em cada
   cam.tx = xmax < 0 ? xmax / 2 : Math.max(0, Math.min(xmax, cam.tx)); cam.ty = ymax < -44 / zoom ? (ymax - 44 / zoom) / 2 : Math.max(-44 / zoom, Math.min(ymax, cam.ty)); // >1800 px: o mundo aparece ao lado do painel centrado; mapa inteiro (3.5.5): centrado
@@ -447,12 +460,14 @@ function loop(now) {
   if (typeof Techniques !== 'undefined') Techniques.tick(); // 4.3.3 mão de Técnicas (desenha a mira por cima do mundo)
   panelT += real; if (panelT > 0.4) { panelT = 0; sel = sel.filter((id) => E.byId(S, id)); if (!document.querySelector('#actions .cmd:hover')) refreshPanel(); if (!intro && !S.spectate) talentModal(); }
   if (typeof Campaign !== 'undefined') Campaign.tick(S, real);
+  if (typeof Saves !== 'undefined') Saves.tick(S); /* 5.2.4 autosave a cada 2 min de jogo */
   if (S.winner !== null) { endScreen(); return; }
   requestAnimationFrame(loop);
 }
 </script>
 <script src="tutorial.js"></script>
 <script src="replay.js"></script>
+<script src="saves.js"></script>
 <script src="lobby.js"></script>
 </body>
 </html>
